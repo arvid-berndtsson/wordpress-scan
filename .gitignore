@@ -1,0 +1,27 @@
+# Scan results
+scan-results/
+*.json
+*.csv
+
+# Target list with actual URLs (keep example only)
+targets.txt
+
+# Temporary files
+/tmp/
+*.tmp
+*.log
+
+# Testing and validation tools
+actionlint*
+yamllint*
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db

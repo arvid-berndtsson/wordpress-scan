@@ -1,0 +1,7 @@
+# WordPress Scan Targets
+# Add one URL per line
+# Lines starting with # are ignored
+# Example:
+# https://example.com
+# https://myblog.example.org
+# https://arvid.tech
