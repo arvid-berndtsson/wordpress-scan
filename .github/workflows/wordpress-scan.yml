@@ -46,7 +46,7 @@ jobs:
         run: wpprobe --version || echo "wpprobe installed successfully"
 
       - name: Update WPProbe vulnerability database
-        run: wpprobe update-db
+        run: wpprobe update
 
       - name: Prepare scan targets
         id: prepare
