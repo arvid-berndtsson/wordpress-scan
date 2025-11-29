@@ -1,9 +1,9 @@
 # Worker Enablement TODOs
 
 ## CLI Worker Enablement
-- [ ] Document worker contract covering inputs, outputs, exit codes, and secrets (`docs/worker-contract.md`).
-- [ ] Build `cmd/wp-worker-cli` with `scan`, `report`, and `init` commands wrapping `wpprobe` and emitting NDJSON.
-- [ ] Implement configuration resolution (file, env, CLI) plus validation for worker environments.
+- [x] Document worker contract covering inputs, outputs, exit codes, and secrets (`docs/worker-contract.md`).
+- [x] Build `cmd/wp-worker-cli` with `scan`, `report`, and `init` commands wrapping `wpprobe` and emitting NDJSON.
+- [x] Implement configuration resolution (file, env, CLI) plus validation for worker environments.
 - [ ] Add reproducible packaging via Goreleaser (multi-arch binaries + Docker image) and track version in `cli-version.json`.
 - [ ] Create unit/smoke tests for the CLI (mock targets, dry-run) and wire them into CI.
 - [ ] Document install/upgrade flows and release notes for worker fleets.

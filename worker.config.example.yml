@@ -1,0 +1,11 @@
+# Example worker configuration for wp-worker-cli
+mode: hybrid
+threads: 10
+outputDir: scan-results
+formats:
+  - json
+  - csv
+targets:
+  - https://example.com
+  - https://shop.example.org
+summaryFile: scan-results/summary.json
