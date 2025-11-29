@@ -64,6 +64,18 @@ You can manually trigger a scan from the Actions tab:
    - Enter comma-separated URLs to scan (overrides targets.txt)
    - Choose scan mode: stealthy, bruteforce, or hybrid
 
+## Worker CLI (Experimental)
+
+For worker platforms that cannot run GitHub Actions, an experimental CLI is now available.
+
+1. Copy `worker.config.example.yml` to `worker.config.yml` and edit your targets or set the `WORKER_TARGETS` environment variable.
+2. Build the binary locally: `go build ./cmd/wp-worker-cli`.
+3. Validate the environment: `./wp-worker-cli init --dry-run`.
+4. Run a scan (omit `--dry-run` once `wpprobe` is installed on the worker): `./wp-worker-cli scan --dry-run`.
+5. Generate summaries from an artifact: `./wp-worker-cli report --input scan-results/scan_<timestamp>.json`.
+
+See `docs/worker-contract.md` for the complete worker contract and configuration details.
+
 ### Scan Modes
 
 - **stealthy**: Uses REST API enumeration (low footprint, fewer requests)
