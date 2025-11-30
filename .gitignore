@@ -2,6 +2,7 @@
 scan-results/
 *.json
 *.csv
+!cli-version.json
 
 # Target list with actual URLs (keep example only)
 targets.txt

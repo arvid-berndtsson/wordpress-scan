@@ -4,9 +4,9 @@
 - [x] Document worker contract covering inputs, outputs, exit codes, and secrets (`docs/worker-contract.md`).
 - [x] Build `cmd/wp-worker-cli` with `scan`, `report`, and `init` commands wrapping `wpprobe` and emitting NDJSON.
 - [x] Implement configuration resolution (file, env, CLI) plus validation for worker environments.
-- [ ] Add reproducible packaging via Goreleaser (multi-arch binaries + Docker image) and track version in `cli-version.json`.
+- [x] Add reproducible packaging via Goreleaser (multi-arch binaries + Docker image) and track version in `cli-version.json`.
 - [x] Create unit/smoke tests for the CLI (mock targets, dry-run) and wire them into CI.
-- [ ] Document install/upgrade flows and release notes for worker fleets.
+- [x] Document install/upgrade flows and release notes for worker fleets.
 
 ## GitHub Worker Templates
 - [ ] Add `worker-templates/github/` with a workflow that downloads the CLI release artifact.

@@ -1,0 +1,51 @@
+project_name: wp-worker-cli
+before:
+  hooks:
+    - go mod tidy
+builds:
+  - id: wp-worker-cli
+    main: ./cmd/wp-worker-cli
+    binary: wp-worker-cli
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+    goarch:
+      - amd64
+      - arm64
+    ldflags:
+      - "-s -w -X github.com/example/wp-worker/internal/cli.version={{ .Env.CLI_VERSION | default .Version }}"
+archives:
+  - id: default
+    builds:
+      - wp-worker-cli
+    format: tar.gz
+    files:
+      - README.md
+      - docs/worker-contract.md
+      - worker.config.example.yml
+      - cli-version.json
+checksum:
+  name_template: "checksums.txt"
+snapshot:
+  name_template: "{{ .Tag }}-{{ .ShortCommit }}"
+changelog:
+  use: github
+  sort: asc
+dockers:
+  - ids:
+      - wp-worker-cli
+    image_templates:
+      - "ghcr.io/example/wp-worker-cli:{{ .Version }}"
+      - "ghcr.io/example/wp-worker-cli:latest"
+    goos: linux
+    goarch:
+      - amd64
+      - arm64
+    use: buildx
+    build_flag_templates:
+      - "--platform=linux/amd64,linux/arm64"
+    dockerfile: Dockerfile.goreleaser
+    extra_files:
+      - worker.config.example.yml
+      - docs/worker-contract.md

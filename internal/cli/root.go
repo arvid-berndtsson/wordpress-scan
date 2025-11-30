@@ -15,7 +15,9 @@ func Execute() error {
 		Short:         "Worker-friendly wrapper around wpprobe",
 		SilenceUsage:  true,
 		SilenceErrors: true,
+		Version:       version,
 	}
+	rootCmd.SetVersionTemplate("wp-worker-cli version {{.Version}}\n")
 
 	rootCmd.PersistentFlags().StringVar(&rootOpts.ConfigPath, "config", config.DefaultConfigPath, "Path to worker.config.yml (optional)")
 	rootCmd.PersistentPreRun = func(cmd *cobra.Command, args []string) {

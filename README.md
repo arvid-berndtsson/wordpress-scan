@@ -76,6 +76,18 @@ For worker platforms that cannot run GitHub Actions, an experimental CLI is now 
 
 See `docs/worker-contract.md` for the complete worker contract and configuration details.
 
+### Packaging & Releases
+
+Reproducible Linux/amd64 and Linux/arm64 builds (plus a Docker image) are defined in `.goreleaser.yaml`. To cut a release:
+
+1. Update `cli-version.json` with the new semantic version.
+2. Create a git tag that matches the version (e.g., `v0.2.0`).
+3. Export the version so Goreleaser can inject it: `export CLI_VERSION=$(jq -r .version cli-version.json)`.
+4. Run `goreleaser release --clean` (or `goreleaser build --snapshot --clean` for local testing).
+
+Goreleaser produces tarballs, a checksum file, and a multi-arch image (`ghcr.io/<org>/wp-worker-cli:<version>`). Each archive ships the example config and worker contract for convenience.
+Install/upgrade runbooks live in `docs/worker-install.md`.
+
 ### Scan Modes
 
 - **stealthy**: Uses REST API enumeration (low footprint, fewer requests)
