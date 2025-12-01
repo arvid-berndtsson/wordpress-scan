@@ -1,4 +1,4 @@
-module github.com/example/wp-worker
+module github.com/example/wphunter
 
 go 1.22.0
 

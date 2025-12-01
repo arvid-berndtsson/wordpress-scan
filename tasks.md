@@ -1,25 +1,30 @@
-# Worker Enablement TODOs
+# WP Hunter Backlog
 
-## CLI Worker Enablement
-- [x] Document worker contract covering inputs, outputs, exit codes, and secrets (`docs/worker-contract.md`).
-- [x] Build `cmd/wp-worker-cli` with `scan`, `report`, and `init` commands wrapping `wpprobe` and emitting NDJSON.
-- [x] Implement configuration resolution (file, env, CLI) plus validation for worker environments.
-- [x] Add reproducible packaging via Goreleaser (multi-arch binaries + Docker image) and track version in `cli-version.json`.
-- [x] Create unit/smoke tests for the CLI (mock targets, dry-run) and wire them into CI.
-- [x] Document install/upgrade flows and release notes for worker fleets.
+## Core Platform
+- [x] Publish product vision and roadmap docs (`docs/product-vision.md`, `docs/roadmap.md`).
+- [x] Rebrand CLI/binary to `wphunter` with version flag + config rename.
+- [x] Layered config (file/env/flags) with detector selection + env aliasing.
+- [x] Package via Goreleaser (multi-arch binaries + Docker image) tracked by `cli-version.json`.
+- [x] Document install/upgrade and automation contract for worker fleets.
+- [ ] Add `doctor` subcommand to validate dependencies, network reachability, and wpprobe DB freshness.
+- [ ] Implement Markdown/HTML summary exports for quick sharing.
 
-## GitHub Worker Templates
-- [ ] Add `worker-templates/github/` with a workflow that downloads the CLI release artifact.
-- [ ] Provide matrix-ready workflow sample for parallel target scans with cached vulnerability DB.
-- [ ] Ship composite action plus issue/PR templates for invoking the worker CLI and uploading artifacts.
-- [ ] Write README snippet explaining secrets, permissions, and schedule customization for templates.
-- [ ] Add automated integration test workflow exercising the template against fixtures.
-- [ ] Create migration checklist for current `.github/workflows/wordpress-scan.yml` users.
+## Detector & Pipeline Expansion
+- [x] Ship `version` detector and detection artifact output.
+- [ ] Add plugin/theme misconfiguration detector (directory listing, backup leaks).
+- [ ] Integrate vulnerability feed diffing + regression detection.
+- [ ] Introduce authenticated detector mode (cookie/token support).
+- [ ] Provide diff command comparing two artifacts to highlight changes.
+- [ ] Build notification hooks (Slack/Webhook) keyed to severity thresholds.
 
-## Functionality Expansion
-- [ ] Implement post-processing (severity counts, regression detection) to enable gating and auto-issues.
-- [ ] Add Slack/webhook notifications and storage backends (S3/GCS) for streaming artifacts.
-- [ ] Support differential scans comparing last artifacts to skip unchanged targets.
-- [ ] Introduce sharding/chunking for large target lists with backpressure controls.
-- [ ] Add `worker doctor` command to validate network, rate limits, and dependencies pre-run.
-- [ ] Maintain signed vulnerability-feed cache for air-gapped workers.
+## Deployments & Integrations
+- [ ] Add `deployments/github/` workflow pulling released binaries + matrix fan-out.
+- [ ] Provide container/k8s cronjob examples for large estates.
+- [ ] Create migration guide for former template users adopting wphunter releases.
+- [ ] Add CI pipeline (`.github/workflows/ci.yml`) with go test + formatting + snapshot build.
+- [ ] Ship composite GitHub Action/wrapper for invoking `wphunter` with artifact uploads.
+
+## Community & Docs
+- [ ] Publish red/blue/purple playbooks detailing example workflows.
+- [ ] Add CONTRIBUTING guide + issue templates with detector/deployment labels.
+- [ ] Produce changelog automation + release-note checklist tied to `docs/roadmap.md`.

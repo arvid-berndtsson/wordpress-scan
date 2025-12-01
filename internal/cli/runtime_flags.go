@@ -1,7 +1,7 @@
 package cli
 
 import (
-	"github.com/example/wp-worker/internal/config"
+	"github.com/example/wphunter/internal/config"
 	"github.com/spf13/cobra"
 )
 
@@ -13,6 +13,7 @@ type runtimeFlagSet struct {
 	threads     int
 	outputDir   string
 	formats     string
+	detectors   string
 	dryRun      bool
 	summaryFile string
 }
@@ -24,6 +25,7 @@ func bindRuntimeFlags(cmd *cobra.Command, flags *runtimeFlagSet) {
 	cmd.Flags().IntVar(&flags.threads, "threads", 0, "Number of concurrent threads (1-64)")
 	cmd.Flags().StringVar(&flags.outputDir, "output-dir", "", "Directory for scan artifacts")
 	cmd.Flags().StringVar(&flags.formats, "formats", "", "Comma-separated output formats (json,csv)")
+	cmd.Flags().StringVar(&flags.detectors, "detectors", "", "Comma-separated detectors to run (version,plugins,...)")
 	cmd.Flags().BoolVar(&flags.dryRun, "dry-run", false, "Skip wpprobe execution and emit placeholder artifacts")
 	cmd.Flags().StringVar(&flags.summaryFile, "summary-file", "", "Optional summary JSON output path")
 }
@@ -53,6 +55,10 @@ func (f runtimeFlagSet) toOverrides(cmd *cobra.Command) config.Overrides {
 
 	if cmd.Flags().Changed("formats") {
 		ov.Formats = config.ParseFormats(f.formats)
+	}
+
+	if cmd.Flags().Changed("detectors") {
+		ov.Detectors = config.ParseDetectors(f.detectors)
 	}
 
 	if cmd.Flags().Changed("dry-run") {

@@ -13,14 +13,15 @@ func TestLoaderLoadWithFileAndEnv(t *testing.T) {
 		t.Fatalf("write targets: %v", err)
 	}
 
-	configPath := filepath.Join(dir, "worker.config.yml")
+	configPath := filepath.Join(dir, "wphunter.config.yml")
 	configBody := []byte("mode: stealthy\nthreads: 6\noutputDir: out\ntargetsFile: " + targetFile + "\nformats:\n  - json\n")
 	if err := os.WriteFile(configPath, configBody, 0o600); err != nil {
 		t.Fatalf("write config: %v", err)
 	}
 
-	t.Setenv(envThreads, "12")
-	t.Setenv(envFormats, "csv")
+	t.Setenv(envThreadsKeys[0], "12")
+	t.Setenv(envFormatsKeys[0], "csv")
+	t.Setenv(envDetectorsKeys[0], "version")
 
 	loader := Loader{ConfigPath: configPath}
 	cfg, err := loader.Load(Overrides{})
@@ -51,11 +52,15 @@ func TestLoaderLoadWithFileAndEnv(t *testing.T) {
 	if len(cfg.Formats) != 1 || cfg.Formats[0] != "csv" {
 		t.Fatalf("unexpected formats: %#v", cfg.Formats)
 	}
+
+	if len(cfg.Detectors) != 1 || cfg.Detectors[0] != "version" {
+		t.Fatalf("unexpected detectors: %#v", cfg.Detectors)
+	}
 }
 
 func TestOverridesApplyTargetsList(t *testing.T) {
 	dir := t.TempDir()
-	configPath := filepath.Join(dir, "worker.config.yml")
+	configPath := filepath.Join(dir, "wphunter.config.yml")
 	if err := os.WriteFile(configPath, []byte("targets:\n  - https://from-file.test\n"), 0o600); err != nil {
 		t.Fatalf("write config: %v", err)
 	}

@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/example/wp-worker/internal/cli"
+	"github.com/example/wphunter/internal/cli"
 )
 
 func main() {

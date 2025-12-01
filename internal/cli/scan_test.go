@@ -7,7 +7,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/example/wp-worker/internal/config"
+	"github.com/example/wphunter/internal/config"
+	"github.com/example/wphunter/internal/detector"
 )
 
 func TestScanCommandDryRunCreatesArtifacts(t *testing.T) {
@@ -24,6 +25,7 @@ func TestScanCommandDryRunCreatesArtifacts(t *testing.T) {
 	cmd.SetArgs([]string{
 		"--targets=https://one.test,https://two.test",
 		"--dry-run",
+		"--detectors", "",
 		"--output-dir", outputDir,
 		"--formats", "json",
 		"--summary-file", summaryPath,
@@ -90,7 +92,8 @@ func TestWriteSummary(t *testing.T) {
 	summaryPath := filepath.Join(outputDir, "summary.json")
 
 	artifacts := []string{"scan.json"}
-	if err := writeSummary(summaryPath, cfg, artifacts); err != nil {
+	var detections []detector.Result
+	if err := writeSummary(summaryPath, cfg, artifacts, detections); err != nil {
 		t.Fatalf("write summary: %v", err)
 	}
 

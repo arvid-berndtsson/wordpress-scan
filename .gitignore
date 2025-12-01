@@ -6,7 +6,8 @@ scan-results/
 
 # Target list with actual URLs (keep example only)
 targets.txt
-worker.config.yml
+wphunter.targets.txt
+wphunter.config.yml
 
 # Temporary files
 /tmp/

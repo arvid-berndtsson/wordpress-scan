@@ -3,8 +3,8 @@ package cli
 import (
 	"fmt"
 
-	"github.com/example/wp-worker/internal/config"
-	"github.com/example/wp-worker/internal/wpprobe"
+	"github.com/example/wphunter/internal/config"
+	"github.com/example/wphunter/internal/wpprobe"
 	"github.com/spf13/cobra"
 )
 
@@ -14,7 +14,7 @@ func newInitCmd(loader *config.Loader) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:   "init",
-		Short: "Validate worker environment and configuration",
+		Short: "Validate the execution environment and configuration",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			overrides := flags.toOverrides(cmd)
 			cfg, err := loader.Load(overrides)

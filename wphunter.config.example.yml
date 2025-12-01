@@ -1,10 +1,12 @@
-# Example worker configuration for wp-worker-cli
+# Example WP Hunter configuration
 mode: hybrid
 threads: 10
 outputDir: scan-results
 formats:
   - json
   - csv
+detectors:
+  - version
 targets:
   - https://example.com
   - https://shop.example.org

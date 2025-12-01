@@ -8,7 +8,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/example/wp-worker/internal/events"
+	"github.com/example/wphunter/internal/events"
 	"github.com/spf13/cobra"
 )
 

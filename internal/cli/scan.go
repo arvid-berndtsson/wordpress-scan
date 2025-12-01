@@ -8,9 +8,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/example/wp-worker/internal/config"
-	"github.com/example/wp-worker/internal/events"
-	"github.com/example/wp-worker/internal/wpprobe"
+	"github.com/example/wphunter/internal/config"
+	"github.com/example/wphunter/internal/detector"
+	"github.com/example/wphunter/internal/events"
+	"github.com/example/wphunter/internal/wpprobe"
 	"github.com/spf13/cobra"
 )
 
@@ -19,7 +20,7 @@ func newScanCmd(loader *config.Loader) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:   "scan",
-		Short: "Run wpprobe using worker-friendly defaults",
+		Short: "Run wpprobe plus configured detectors against WordPress targets",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			overrides := flags.toOverrides(cmd)
 			cfg, err := loader.Load(overrides)
@@ -55,6 +56,7 @@ func newScanCmd(loader *config.Loader) *cobra.Command {
 
 			timestamp := time.Now().UTC().Format("20060102_150405")
 			var outputs []string
+			var detectionResults []detector.Result
 
 			for _, format := range cfg.Formats {
 				format = strings.ToLower(strings.TrimSpace(format))
@@ -86,8 +88,51 @@ func newScanCmd(loader *config.Loader) *cobra.Command {
 				}
 			}
 
+			if !cfg.DryRun {
+				dets, err := detector.DefaultRegistry.BuildDetectors(cfg.Detectors)
+				if err != nil {
+					return err
+				}
+
+				if len(dets) > 0 {
+					detectionResults, err = detector.Run(cmd.Context(), dets, cfg.Targets)
+					if err != nil {
+						return err
+					}
+
+					detectionsPath := filepath.Join(cfg.OutputDir, fmt.Sprintf("detections_%s.json", timestamp))
+					if err := writeDetectionsArtifact(detectionsPath, detectionResults); err != nil {
+						return err
+					}
+
+					outputs = append(outputs, detectionsPath)
+					if err := emitter.Emit(events.Event{Type: "artifact-written", Fields: map[string]interface{}{"path": detectionsPath, "format": "detections"}}); err != nil {
+						return err
+					}
+
+					for _, res := range detectionResults {
+						if err := emitter.Emit(events.Event{
+							Type:    "detection",
+							Message: res.Summary,
+							Fields: map[string]interface{}{
+								"target":     res.Target,
+								"detector":   res.Detector,
+								"severity":   res.Severity,
+								"confidence": res.Confidence,
+							},
+						}); err != nil {
+							return err
+						}
+					}
+				}
+			} else if len(cfg.Detectors) > 0 {
+				if err := emitter.Emit(events.Event{Type: "detectors-skipped", Message: "Detectors require live targets; skipped due to --dry-run"}); err != nil {
+					return err
+				}
+			}
+
 			if cfg.SummaryFile != "" {
-				if err := writeSummary(cfg.SummaryFile, cfg, outputs); err != nil {
+				if err := writeSummary(cfg.SummaryFile, cfg, outputs, detectionResults); err != nil {
 					return err
 				}
 			}
@@ -102,7 +147,7 @@ func newScanCmd(loader *config.Loader) *cobra.Command {
 }
 
 func writeTargetsTempFile(targets []string) (string, error) {
-	file, err := os.CreateTemp("", "worker-targets-*.txt")
+	file, err := os.CreateTemp("", "wphunter-targets-*.txt")
 	if err != nil {
 		return "", err
 	}
@@ -150,13 +195,15 @@ func writePlaceholderArtifact(path, format string, targets []string) error {
 	}
 }
 
-func writeSummary(path string, cfg config.RuntimeConfig, artifacts []string) error {
+func writeSummary(path string, cfg config.RuntimeConfig, artifacts []string, detections []detector.Result) error {
 	summary := map[string]interface{}{
 		"generatedAt": time.Now().UTC().Format(time.RFC3339),
 		"targets":     cfg.Targets,
 		"mode":        cfg.Mode,
 		"artifacts":   artifacts,
 		"dryRun":      cfg.DryRun,
+		"detectors":   cfg.Detectors,
+		"detections":  detections,
 	}
 
 	data, err := json.MarshalIndent(summary, "", "  ")
@@ -165,6 +212,19 @@ func writeSummary(path string, cfg config.RuntimeConfig, artifacts []string) err
 	}
 
 	if err := ensureOutputDir(filepath.Dir(path)); err != nil {
+		return err
+	}
+
+	return os.WriteFile(path, append(data, '\n'), 0o644)
+}
+
+func writeDetectionsArtifact(path string, results []detector.Result) error {
+	if err := ensureOutputDir(filepath.Dir(path)); err != nil {
+		return err
+	}
+
+	data, err := json.MarshalIndent(results, "", "  ")
+	if err != nil {
 		return err
 	}
 

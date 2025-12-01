@@ -1,7 +1,7 @@
 package cli
 
 import (
-	"github.com/example/wp-worker/internal/config"
+	"github.com/example/wphunter/internal/config"
 	"github.com/spf13/cobra"
 )
 
@@ -11,15 +11,15 @@ func Execute() error {
 	rootOpts := &rootOptions{}
 
 	rootCmd := &cobra.Command{
-		Use:           "wp-worker-cli",
-		Short:         "Worker-friendly wrapper around wpprobe",
+		Use:           "wphunter",
+		Short:         "Red/blue WordPress scanner with modular detectors",
 		SilenceUsage:  true,
 		SilenceErrors: true,
 		Version:       version,
 	}
-	rootCmd.SetVersionTemplate("wp-worker-cli version {{.Version}}\n")
+	rootCmd.SetVersionTemplate("wphunter version {{.Version}}\n")
 
-	rootCmd.PersistentFlags().StringVar(&rootOpts.ConfigPath, "config", config.DefaultConfigPath, "Path to worker.config.yml (optional)")
+	rootCmd.PersistentFlags().StringVar(&rootOpts.ConfigPath, "config", config.DefaultConfigPath, "Path to wphunter.config.yml (optional)")
 	rootCmd.PersistentPreRun = func(cmd *cobra.Command, args []string) {
 		if rootOpts.ConfigPath != "" {
 			loader.ConfigPath = rootOpts.ConfigPath

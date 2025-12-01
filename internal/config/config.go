@@ -13,16 +13,19 @@ import (
 )
 
 const (
-	DefaultConfigPath = "worker.config.yml"
+	DefaultConfigPath = "wphunter.config.yml"
+)
 
-	envTargets     = "WORKER_TARGETS"
-	envTargetsFile = "WORKER_TARGETS_FILE"
-	envMode        = "WORKER_MODE"
-	envThreads     = "WORKER_THREADS"
-	envOutputDir   = "WORKER_OUTPUT_DIR"
-	envFormats     = "WORKER_FORMATS"
-	envDryRun      = "WORKER_DRY_RUN"
-	envSummaryFile = "WORKER_SUMMARY_FILE"
+var (
+	envTargetsKeys     = []string{"WPHUNTER_TARGETS", "WORKER_TARGETS"}
+	envTargetsFileKeys = []string{"WPHUNTER_TARGETS_FILE", "WORKER_TARGETS_FILE"}
+	envModeKeys        = []string{"WPHUNTER_MODE", "WORKER_MODE"}
+	envThreadsKeys     = []string{"WPHUNTER_THREADS", "WORKER_THREADS"}
+	envOutputDirKeys   = []string{"WPHUNTER_OUTPUT_DIR", "WORKER_OUTPUT_DIR"}
+	envFormatsKeys     = []string{"WPHUNTER_FORMATS", "WORKER_FORMATS"}
+	envDryRunKeys      = []string{"WPHUNTER_DRY_RUN", "WORKER_DRY_RUN"}
+	envSummaryFileKeys = []string{"WPHUNTER_SUMMARY_FILE", "WORKER_SUMMARY_FILE"}
+	envDetectorsKeys   = []string{"WPHUNTER_DETECTORS", "WORKER_DETECTORS"}
 )
 
 // Loader merges configuration coming from files, environment variables, and CLI flags.
@@ -37,6 +40,7 @@ type RuntimeConfig struct {
 	Threads     int
 	OutputDir   string
 	Formats     []string
+	Detectors   []string
 	DryRun      bool
 	SummaryFile string
 }
@@ -50,6 +54,7 @@ type Overrides struct {
 	ThreadsSet  bool
 	OutputDir   string
 	Formats     []string
+	Detectors   []string
 	DryRun      *bool
 	SummaryFile string
 }
@@ -61,6 +66,7 @@ func DefaultRuntimeConfig() RuntimeConfig {
 		Threads:   10,
 		OutputDir: "scan-results",
 		Formats:   []string{"json", "csv"},
+		Detectors: []string{"version"},
 	}
 }
 
@@ -147,6 +153,10 @@ func (c *RuntimeConfig) apply(src Overrides) error {
 		c.Formats = cleanList(src.Formats)
 	}
 
+	if len(src.Detectors) > 0 {
+		c.Detectors = cleanList(src.Detectors)
+	}
+
 	if src.DryRun != nil {
 		c.DryRun = *src.DryRun
 	}
@@ -171,6 +181,7 @@ func loadFromFile(path string) (Overrides, error) {
 		Threads     *int       `yaml:"threads"`
 		OutputDir   string     `yaml:"outputDir"`
 		Formats     []string   `yaml:"formats"`
+		Detectors   []string   `yaml:"detectors"`
 		DryRun      *bool      `yaml:"dryRun"`
 		SummaryFile string     `yaml:"summaryFile"`
 	}
@@ -186,6 +197,7 @@ func loadFromFile(path string) (Overrides, error) {
 		Mode:        raw.Mode,
 		OutputDir:   raw.OutputDir,
 		Formats:     raw.Formats,
+		Detectors:   raw.Detectors,
 		SummaryFile: raw.SummaryFile,
 	}
 
@@ -204,40 +216,44 @@ func loadFromFile(path string) (Overrides, error) {
 func overridesFromEnv() Overrides {
 	ov := Overrides{}
 
-	if value := os.Getenv(envTargets); value != "" {
+	if value := lookupEnv(envTargetsKeys); value != "" {
 		ov.Targets = ParseTargetsList(value)
 	}
 
-	if value := os.Getenv(envTargetsFile); value != "" {
+	if value := lookupEnv(envTargetsFileKeys); value != "" {
 		ov.TargetsFile = value
 	}
 
-	if value := os.Getenv(envMode); value != "" {
+	if value := lookupEnv(envModeKeys); value != "" {
 		ov.Mode = value
 	}
 
-	if value := os.Getenv(envThreads); value != "" {
+	if value := lookupEnv(envThreadsKeys); value != "" {
 		if parsed, err := strconv.Atoi(value); err == nil {
 			ov.Threads = parsed
 			ov.ThreadsSet = true
 		}
 	}
 
-	if value := os.Getenv(envOutputDir); value != "" {
+	if value := lookupEnv(envOutputDirKeys); value != "" {
 		ov.OutputDir = value
 	}
 
-	if value := os.Getenv(envFormats); value != "" {
+	if value := lookupEnv(envFormatsKeys); value != "" {
 		ov.Formats = ParseFormats(value)
 	}
 
-	if value := os.Getenv(envDryRun); value != "" {
+	if value := lookupEnv(envDryRunKeys); value != "" {
 		parsed := strings.EqualFold(value, "true") || value == "1"
 		ov.DryRun = &parsed
 	}
 
-	if value := os.Getenv(envSummaryFile); value != "" {
+	if value := lookupEnv(envSummaryFileKeys); value != "" {
 		ov.SummaryFile = value
+	}
+
+	if value := lookupEnv(envDetectorsKeys); value != "" {
+		ov.Detectors = ParseDetectors(value)
 	}
 
 	return ov
@@ -250,6 +266,11 @@ func ParseTargetsList(input string) []string {
 
 // ParseFormats splits comma separated format strings.
 func ParseFormats(input string) []string {
+	return splitOnDelimiters(input, []rune{',', '\n', '\r', ' '})
+}
+
+// ParseDetectors splits detector lists.
+func ParseDetectors(input string) []string {
 	return splitOnDelimiters(input, []rune{',', '\n', '\r', ' '})
 }
 
@@ -317,6 +338,15 @@ func fileExists(path string) bool {
 	}
 	info, err := os.Stat(path)
 	return err == nil && !info.IsDir()
+}
+
+func lookupEnv(keys []string) string {
+	for _, key := range keys {
+		if value := os.Getenv(key); value != "" {
+			return value
+		}
+	}
+	return ""
 }
 
 // targetList enables YAML fields that can be specified as a scalar or sequence.
