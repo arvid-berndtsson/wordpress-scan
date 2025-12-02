@@ -182,14 +182,14 @@ func writePlaceholderArtifact(path, format string, targets []string) error {
 		if err != nil {
 			return err
 		}
-		return os.WriteFile(path, append(data, '\n'), 0o644)
+		return os.WriteFile(path, append(data, '\n'), 0o600)
 	case "csv":
 		lines := []string{"target,status"}
 		for _, target := range targets {
 			lines = append(lines, fmt.Sprintf("%s,placeholder", target))
 		}
 		content := strings.Join(lines, "\n") + "\n"
-		return os.WriteFile(path, []byte(content), 0o644)
+		return os.WriteFile(path, []byte(content), 0o600)
 	default:
 		return fmt.Errorf("unsupported format %s", format)
 	}
