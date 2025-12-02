@@ -39,9 +39,6 @@ dockers:
       - "ghcr.io/example/wphunter:{{ .Version }}"
       - "ghcr.io/example/wphunter:latest"
     goos: linux
-    goarch:
-      - amd64
-      - arm64
     use: buildx
     build_flag_templates:
       - "--platform=linux/amd64,linux/arm64"
