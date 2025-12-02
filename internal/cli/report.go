@@ -66,5 +66,5 @@ func writeReportSummary(path string, stats map[string]interface{}) error {
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(path, append(data, '\n'), 0o644)
+	return os.WriteFile(path, append(data, '\n'), 0o600)
 }
