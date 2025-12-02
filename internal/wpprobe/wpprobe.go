@@ -54,6 +54,8 @@ func (r *CommandRunner) Scan(ctx context.Context, input ScanInput) error {
 		"-t", strconv.Itoa(input.Threads),
 	}
 
+	// Binary path is controlled by the application and args are constructed
+	// programmatically from validated inputs, making command injection impossible.
 	cmd := exec.CommandContext(ctx, r.Binary, args...) // #nosec G204
 	cmd.Stdout = input.Stdout
 	cmd.Stderr = input.Stderr
@@ -63,6 +65,8 @@ func (r *CommandRunner) Scan(ctx context.Context, input ScanInput) error {
 
 // Update runs `wpprobe update` to refresh vulnerability databases.
 func (r *CommandRunner) Update(ctx context.Context) error {
+	// Binary path is controlled by the application and the argument is a constant string,
+	// making command injection impossible.
 	cmd := exec.CommandContext(ctx, r.Binary, "update") // #nosec G204
 	return cmd.Run()
 }
