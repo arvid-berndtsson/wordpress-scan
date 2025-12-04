@@ -1,0 +1,66 @@
+name: WP Hunter Scan
+
+on:
+  workflow_dispatch:
+    inputs:
+      wphunter_version:
+        description: "Container tag (e.g., v0.2.0 or latest)"
+        required: false
+        default: "latest"
+      targets:
+        description: "Comma-separated URLs (overrides repo file)"
+        required: false
+      scan_mode:
+        description: "wpprobe mode"
+        required: false
+        default: "hybrid"
+        type: choice
+        options:
+          - stealthy
+          - bruteforce
+          - hybrid
+      formats:
+        description: "Artifact formats"
+        required: false
+        default: "json,csv"
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Checkout (for targets/config)
+        uses: actions/checkout@v4
+
+      - name: Prepare targets
+        id: prep
+        run: |
+          mkdir -p .wphunter
+          if [ -n "${{ inputs.targets }}" ]; then
+            echo "${{ inputs.targets }}" | tr ',' '\n' > .wphunter/targets.txt
+          elif [ -f wphunter.targets.txt ]; then
+            cp wphunter.targets.txt .wphunter/targets.txt
+          else
+            echo "No targets provided. Set workflow input or commit wphunter.targets.txt" >&2
+            exit 1
+          fi
+          cat .wphunter/targets.txt
+
+      - name: Run WP Hunter container
+        uses: docker://ghcr.io/example/wphunter:${{ inputs.wphunter_version }}
+        with:
+          args: >-
+            scan --targets-file /github/workspace/.wphunter/targets.txt
+            --mode ${{ inputs.scan_mode }}
+            --formats ${{ inputs.formats }}
+            --output-dir /github/workspace/scan-results
+            --summary-file /github/workspace/scan-results/summary.json
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: wphunter-results-${{ github.run_number }}
+          path: scan-results
+          retention-days: 45

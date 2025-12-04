@@ -1,0 +1,4 @@
+FROM gcr.io/distroless/base-debian12
+
+COPY wphunter /usr/local/bin/wphunter
+ENTRYPOINT ["/usr/local/bin/wphunter"]

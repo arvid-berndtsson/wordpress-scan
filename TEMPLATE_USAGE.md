@@ -1,206 +1,48 @@
-# Template Usage Guide
+# Deployment Recipes
 
-This guide will help you get started with the WordPress Vulnerability Scanner template.
+WP Hunter is no longer a template repository. Instead, use these deployment recipes to run the published CLI in your own environments.
 
-## Quick Start
+## GitHub Actions (Recommended)
+1. Copy `deployments/github/wp-hunter-template.yml` into `.github/workflows/wp-hunter.yml` in **your** scan repository.
+2. Provide targets in one of two ways:
+   - Commit `wphunter.targets.txt` (one URL per line, keep repo private or encrypt file).
+   - Supply inline targets through the workflow dispatch input (`https://a.test,https://b.test`).
+3. Trigger the workflow manually or on a schedule. The job:
+   - Prepares `.wphunter/targets.txt` from your inputs.
+   - Pulls `ghcr.io/<org>/wphunter:<tag>` and runs `wphunter scan` with your settings.
+   - Uploads `scan-results/` (JSON/CSV artifacts, detections, summary).
+4. Monitor NDJSON logs in the workflow output for detector findings (`detection` events).
 
-### Step 1: Create Your Repository
+**Checklist**
+- Keep the workflow repository private if targets are sensitive.
+- Set `scan_mode` to `stealthy` for low-noise schedules and `bruteforce` for deep audits.
+- Use GitHub Environments + secrets if you plan to inject credentials (future authenticated detectors).
 
-1. Click "Use this template" button on GitHub
-2. Choose a name for your repository (e.g., `my-wordpress-security`)
-3. Select whether it should be public or private
-4. Click "Create repository from template"
+## Self-Hosted Linux Worker
+1. Install the binary or container per `docs/worker-install.md`.
+2. Store `wphunter.config.yml` alongside your scheduler config (systemd timer, cron, Jenkins, etc.).
+3. Run `wphunter init` as part of provisioning to verify dependencies and config.
+4. Schedule `wphunter scan --config /path/to/wphunter.config.yml` at desired intervals. Export artifacts to an S3 bucket or internal share.
+5. Pipe stdout to your SIEM/log shipper to capture NDJSON events.
 
-### Step 2: Add Your WordPress Sites
+## Purple-Team Exercises
+1. Create multiple config files (e.g., `configs/red.yaml`, `configs/blue.yaml`) with different detector mixes.
+2. Run scans in parallel using separate output directories to compare offensive vs defensive views.
+3. Use `wphunter report --input scan-results/*.json` to create summary artifacts for exercise debriefs.
+4. Feed detections into your detection engineering backlog; the raw JSON makes it easy to write regression tests.
 
-1. In your new repository, create a file named `targets.txt`
-2. Add one WordPress site URL per line:
+## Legacy Template Migration
+If you previously relied on the old GitHub template:
+1. Archive the template repo or convert it into a “scan orchestrator” repository.
+2. Remove the legacy `.github/workflows/wordpress-scan.yml` file.
+3. Add `deployments/github/wp-hunter-template.yml` instead, pointing to released binaries/containers.
+4. Replace `targets.txt` with `wphunter.targets.txt` (optional but recommended for clarity).
+5. Update docs/readmes to reference WP Hunter instead of the template.
 
-```
-https://yoursite.com
-https://yourblog.example.org
-```
+## Operational Tips
+- **Targets hygiene:** keep `.gitignore` entries for `wphunter.config.yml` and `wphunter.targets.txt` so secrets never leak.
+- **Artifacts:** download/upload `scan-results/` to long-term storage immediately (GitHub artifact retention defaults to 90 days).
+- **Scaling:** split very large target inventories across multiple configs; future releases will add automated sharding.
+- **Testing:** use `--dry-run --formats json --detectors ""` in CI to validate configs without touching live targets.
 
-**Note:** The `targets.txt` file is in `.gitignore` to prevent accidental exposure of your site URLs. You can commit it if your repository is private and you want to track changes.
-
-### Step 3: Run Your First Scan
-
-#### Option A: Wait for Scheduled Run
-The workflow is scheduled to run daily at 02:00 UTC automatically.
-
-#### Option B: Trigger Manually
-1. Go to the "Actions" tab
-2. Select "WordPress Vulnerability Scan"
-3. Click "Run workflow"
-4. Leave defaults or customize:
-   - **URLs**: Override targets.txt with comma-separated URLs
-   - **Scan mode**: Choose stealthy (fast), bruteforce (thorough), or hybrid (recommended)
-5. Click "Run workflow"
-
-### Step 4: Review Results
-
-1. After the workflow completes, go to the workflow run page
-2. Scroll down to "Artifacts"
-3. Download the scan results artifact
-4. Extract and open the CSV or JSON files
-
-If vulnerabilities are found, an issue will be automatically created in your repository.
-
-## Understanding Scan Modes
-
-### Stealthy Mode
-- **Best for:** Regular scheduled scans
-- **Speed:** Fastest
-- **Detection:** Good (3,000+ plugins)
-- **Visibility:** Low footprint, fewer requests
-- **Use when:** You want minimal impact on target sites
-
-### Bruteforce Mode
-- **Best for:** Comprehensive audits
-- **Speed:** Slower
-- **Detection:** Best (10,000+ plugins)
-- **Visibility:** High footprint, many requests
-- **Use when:** You need maximum plugin detection
-
-### Hybrid Mode (Recommended)
-- **Best for:** Balanced scanning
-- **Speed:** Medium
-- **Detection:** Excellent
-- **Visibility:** Moderate
-- **Use when:** You want good coverage without excessive requests
-
-## Interpreting Results
-
-### CSV Format
-Open in Excel, Google Sheets, or any spreadsheet software:
-- **URL**: The scanned WordPress site
-- **Plugin**: Detected plugin name
-- **Version**: Plugin version found
-- **Vulnerabilities**: Known CVEs affecting this version
-- **Severity**: Risk level (Critical, High, Medium, Low)
-
-### JSON Format
-Machine-readable format for automated processing:
-```json
-{
-  "url": "https://example.com",
-  "plugins": [
-    {
-      "name": "plugin-name",
-      "version": "1.0.0",
-      "vulnerabilities": [
-        {
-          "cve": "CVE-2024-XXXXX",
-          "severity": "high",
-          "description": "..."
-        }
-      ]
-    }
-  ]
-}
-```
-
-## Taking Action on Vulnerabilities
-
-When vulnerabilities are detected:
-
-1. **Review**: Check the scan results for details
-2. **Prioritize**: Focus on Critical and High severity issues first
-3. **Update**: Log into WordPress and update affected plugins
-4. **Verify**: Re-run the scan to confirm fixes
-5. **Document**: Close the GitHub issue once resolved
-
-## Customizing the Schedule
-
-Edit `.github/workflows/wordpress-scan.yml` to change the schedule:
-
-```yaml
-on:
-  schedule:
-    # Examples:
-    - cron: '0 2 * * *'     # Daily at 02:00 UTC
-    - cron: '0 2 * * 1'     # Weekly on Mondays
-    - cron: '0 2 1 * *'     # Monthly on the 1st
-    - cron: '0 */6 * * *'   # Every 6 hours
-```
-
-Use [crontab.guru](https://crontab.guru/) to help create cron expressions.
-
-## Best Practices
-
-### Security
-- ✅ Keep your repository private if scanning production sites
-- ✅ Use secrets for any sensitive configuration
-- ✅ Only scan sites you own or have permission to test
-- ✅ Review and act on findings promptly
-
-### Performance
-- ✅ Use stealthy mode for frequent scans
-- ✅ Adjust thread count based on target site capacity
-- ✅ Space out scans to avoid overwhelming servers
-- ✅ Consider scanning during off-peak hours
-
-### Maintenance
-- ✅ Regularly review and update targets.txt
-- ✅ Archive old scan results after remediation
-- ✅ Keep the workflow file updated
-- ✅ Monitor for wpprobe updates
-
-## Troubleshooting
-
-### Workflow Fails to Find Targets
-- Check that `targets.txt` exists and has valid URLs
-- Ensure URLs start with `http://` or `https://`
-- Verify there are no blank lines or comments in wrong format
-
-### No Results Generated
-- The site might not be WordPress
-- Plugins might be well-hidden or renamed
-- Try a different scan mode (hybrid or bruteforce)
-
-### Permission Errors
-- Check repository settings → Actions → General
-- Enable "Read and write permissions"
-- Enable "Allow GitHub Actions to create issues"
-
-### wpprobe Installation Fails
-- Ensure Go 1.22+ is being used (check workflow file)
-- GitHub Actions might be experiencing issues
-- Check wpprobe repository for breaking changes
-
-## Advanced Configuration
-
-### Adjusting Thread Count
-More threads = faster scan but more load on target:
-
-```yaml
-wpprobe scan -f /tmp/targets.txt --mode "$SCAN_MODE" -o "results.json" -t 20
-```
-
-Recommended:
-- Small sites (1-3): `-t 5`
-- Medium sites (4-10): `-t 10`
-- Large sites (10+): `-t 20`
-
-### Custom Output Formats
-Modify the workflow to add additional output formats or processing steps after the scan completes.
-
-### Integration with Security Tools
-Parse the JSON output and send to:
-- Slack/Discord webhooks for notifications
-- Security dashboards
-- SIEM systems
-- Jira/Linear for issue tracking
-
-## Getting Help
-
-- **wpprobe Issues**: [GitHub Issues](https://github.com/Chocapikk/wpprobe/issues)
-- **Template Issues**: [Create an issue](../../issues/new) in this repository
-- **False Positives**: Review vulnerability details and verify plugin versions
-
-## License & Legal
-
-- Only scan WordPress sites you own or have explicit permission to test
-- This tool is for authorized security testing only
-- Unauthorized scanning may violate laws in your jurisdiction
-- The template and wpprobe are provided "as-is" without warranty
+Always ensure you have permission to scan each target. Misuse may violate laws or terms of service.
