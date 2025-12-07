@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/example/wphunter/internal/config"
@@ -30,11 +31,11 @@ func TestInitCommandSuccessfulValidation(t *testing.T) {
 	}
 
 	output := buf.String()
-	if !bytes.Contains([]byte(output), []byte("Environment looks good")) {
+	if !strings.Contains(output, "Environment looks good") {
 		t.Fatalf("expected success message, got: %s", output)
 	}
 
-	if !bytes.Contains([]byte(output), []byte(outputDir)) {
+	if !strings.Contains(output, outputDir) {
 		t.Fatalf("expected output dir in message, got: %s", output)
 	}
 
@@ -151,7 +152,7 @@ func TestInitCommandBinaryCheckWithSkipFlag(t *testing.T) {
 	}
 
 	output := buf.String()
-	if !bytes.Contains([]byte(output), []byte("Environment looks good")) {
+	if !strings.Contains(output, "Environment looks good") {
 		t.Fatalf("expected success message, got: %s", output)
 	}
 }
@@ -178,7 +179,7 @@ func TestInitCommandBinaryCheckWithDryRun(t *testing.T) {
 	}
 
 	output := buf.String()
-	if !bytes.Contains([]byte(output), []byte("Environment looks good")) {
+	if !strings.Contains(output, "Environment looks good") {
 		t.Fatalf("expected success message, got: %s", output)
 	}
 }
@@ -210,7 +211,7 @@ func TestInitCommandBinaryCheckWithoutSkipFlag(t *testing.T) {
 	}
 
 	// Verify the error is about the missing binary
-	if !bytes.Contains([]byte(err.Error()), []byte("wpprobe binary not found")) {
+	if !strings.Contains(err.Error(), "wpprobe binary not found") {
 		t.Fatalf("expected wpprobe binary error, got: %v", err)
 	}
 }
@@ -253,7 +254,7 @@ threads: 5
 	}
 
 	output := buf.String()
-	if !bytes.Contains([]byte(output), []byte(outputDir)) {
+	if !strings.Contains(output, outputDir) {
 		t.Fatalf("expected output dir from config in message, got: %s", output)
 	}
 }
@@ -299,7 +300,7 @@ mode: hybrid
 	}
 
 	output := buf.String()
-	if !bytes.Contains([]byte(output), []byte(cliOutputDir)) {
+	if !strings.Contains(output, cliOutputDir) {
 		t.Fatalf("expected CLI output dir in message, got: %s", output)
 	}
 
