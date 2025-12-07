@@ -1,153 +1,92 @@
-# WordPress Vulnerability Scanner
+# WP Hunter
 
-A template repository for automatically scanning WordPress websites for known vulnerabilities using [wpprobe](https://github.com/Chocapikk/wpprobe) and GitHub Actions.
+WP Hunter is an offensive/defensive WordPress reconnaissance toolkit that ships as a standalone CLI, container image, and set of deployment recipes. It orchestrates multiple detectors (wpprobe, version fingerprinting, future plugin/theme checks) and emits machine-readable artifacts for red, blue, and purple team workflows.
 
-## Features
+## Highlights
+- 🔎 **Modular detection pipeline** – run built-in detectors (`version`, wpprobe) and extend via the new detector runtime.
+- ⚙️ **Production-ready CLI** – layered config (`wphunter.config.yml`, env, flags), NDJSON events, summary artifacts, and dry-run support.
+- 🚀 **Deploy anywhere** – binaries, multi-arch container, or copy/paste GitHub Action from `deployments/github/`.
+- 📊 **Actionable outputs** – JSON/CSV scan data, detector findings, and summaries ready for issue trackers or SIEM ingestion.
+- 🗺️ **Open roadmap** – documented vision/roadmap, with plans for diffing, authenticated checks, notifier hooks, and community detectors.
 
-- 🔍 Automated vulnerability scanning using wpprobe
-- ⏰ Scheduled daily scans via GitHub Actions
-- 🎯 Multiple scan modes: stealthy, bruteforce, and hybrid
-- 📊 Results saved as JSON and CSV formats
-- 🚨 Automatic issue creation when vulnerabilities are detected
-- 🔧 Manual trigger with custom URLs via workflow_dispatch
-
-## Setup
-
-### 1. Use This Template
-
-Click the "Use this template" button to create a new repository from this template.
-
-### 2. Configure Scan Targets
-
-Create a `targets.txt` file in the root of your repository with one URL per line:
-
-```
-https://example.com
-https://myblog.example.org
-https://shop.example.net
-```
-
-You can use `targets.txt.example` as a starting point:
+## Quick Start
 
 ```bash
-cp targets.txt.example targets.txt
-# Edit targets.txt with your WordPress site URLs
+# 1. Build the CLI (or download from Releases once published)
+go build -o bin/wphunter ./cmd/wphunter
+
+# 2. Copy and edit the config + targets
+cp wphunter.config.example.yml wphunter.config.yml
+cp wphunter.targets.example wphunter.targets.txt # optional, used by deployments
+# edit targets, modes, detectors, output directory
+
+# 3. Validate the environment (installs only run-time deps)
+./bin/wphunter init --config wphunter.config.yml
+
+# 4. Run a scan (remove --dry-run for live detectors + wpprobe)
+./bin/wphunter scan --config wphunter.config.yml --dry-run
+
+# 5. Generate a quick summary against a JSON artifact
+./bin/wphunter report --input scan-results/scan_<timestamp>.json
 ```
 
-### 3. Enable GitHub Actions
+Detectors require live targets, so they are automatically skipped during `--dry-run`. Set `--detectors ""` (or `WPHUNTER_DETECTORS=`) to disable them entirely. When enabled, findings are written to `detections_<timestamp>.json` and streamed via NDJSON events.
 
-Ensure GitHub Actions is enabled in your repository settings.
+## Configuration
 
-### 4. Configure Permissions (Optional)
-
-If you want automatic issue creation for detected vulnerabilities:
-
-1. Go to Settings → Actions → General
-2. Scroll to "Workflow permissions"
-3. Select "Read and write permissions"
-4. Check "Allow GitHub Actions to create and approve pull requests"
-
-## Usage
-
-### Automatic Scans
-
-The workflow runs automatically every day at 02:00 UTC. You can modify the schedule in `.github/workflows/wordpress-scan.yml`.
-
-### Manual Scans
-
-You can manually trigger a scan from the Actions tab:
-
-1. Go to the "Actions" tab in your repository
-2. Select "WordPress Vulnerability Scan" workflow
-3. Click "Run workflow"
-4. Optionally:
-   - Enter comma-separated URLs to scan (overrides targets.txt)
-   - Choose scan mode: stealthy, bruteforce, or hybrid
-
-### Scan Modes
-
-- **stealthy**: Uses REST API enumeration (low footprint, fewer requests)
-- **bruteforce**: Aggressively checks plugin directories (more thorough)
-- **hybrid**: Combines both methods (recommended for best coverage)
-
-## Viewing Results
-
-### Artifacts
-
-After each scan, results are uploaded as artifacts:
-
-1. Go to the "Actions" tab
-2. Click on the completed workflow run
-3. Download the "scan-results" artifact
-4. Extract and view the JSON or CSV files
-
-### Issues
-
-When vulnerabilities are detected, an issue is automatically created with:
-- Summary of findings
-- Link to detailed results
-- Action items for remediation
-
-## Scan Results Format
-
-Results are saved in two formats:
-
-**JSON**: Detailed machine-readable format with full vulnerability data
-**CSV**: Human-readable format for quick review in spreadsheets
-
-## Customization
-
-### Adjusting Scan Frequency
-
-Edit the cron schedule in `.github/workflows/wordpress-scan.yml`:
+`wphunter.config.yml` controls targets, scan modes, threads, formats, and detectors:
 
 ```yaml
-on:
-  schedule:
-    - cron: '0 2 * * *'  # Daily at 02:00 UTC
+mode: hybrid
+threads: 12
+outputDir: scan-results
+formats: [json, csv]
+detectors: [version]
+targets:
+  - https://example.com
+  - https://myblog.example.org
+summaryFile: scan-results/summary.json
 ```
 
-### Adjusting Thread Count
+You can override any field via environment variables (new `WPHUNTER_*` names with legacy `WORKER_*` fallbacks) or CLI flags:
 
-Modify the `-t` parameter in the workflow file to change concurrent scan threads:
-
-```yaml
-wpprobe scan -f /tmp/targets.txt --mode "$SCAN_MODE" -o "scan-results/scan_${TIMESTAMP}.json" -t 10
+```bash
+WPHUNTER_TARGETS="https://one.test,https://two.test" \
+WPHUNTER_DETECTORS="version" \
+./bin/wphunter scan --formats json
 ```
 
-### Artifact Retention
+## Detectors
+- `version` *(new)*: downloads each target homepage and extracts the WordPress generator meta tag, reporting the detected core version.
+- `wpprobe`: leverages [wpprobe](https://github.com/Chocapikk/wpprobe) for plugin/theme enumeration using stealthy, bruteforce, or hybrid strategies.
 
-Adjust retention period in the workflow file (default: 90 days):
+Future detectors (see `docs/roadmap.md`) will include authenticated probes, misconfiguration checks, and differential analysis.
 
-```yaml
-retention-days: 90
-```
+## Deployments & Integrations
+- **GitHub Actions:** copy `deployments/github/wp-hunter-template.yml` into your own repo. The workflow pulls prebuilt binaries/containers instead of rebuilding Go code.
+- **Workers/Fleets:** consult `docs/worker-contract.md` and `docs/worker-install.md` for install, upgrade, and release-note procedures across Linux amd64/arm64 hosts.
+- **Containers:** build via `goreleaser` or `docker build -f Dockerfile.goreleaser .` to obtain a minimal distroless image.
 
-## About wpprobe
+## Packaging & Releases
+Reproducible builds are defined in `.goreleaser.yaml`.
 
-wpprobe is a fast WordPress plugin enumeration tool that detects installed plugins and matches them against known vulnerabilities. It offers:
+1. Update `cli-version.json` with the next semantic version.
+2. Tag the repo (e.g., `git tag v0.2.0`).
+3. Export the version for Goreleaser: `export CLI_VERSION=$(jq -r .version cli-version.json)`.
+4. Run `goreleaser release --clean` (or `goreleaser build --snapshot --clean` for local smoke tests).
 
-- 🚀 Fast, multithreaded scanning
-- 🔒 Stealthy detection via REST API
-- 📦 Detection of 3,000+ plugins (stealthy) or 10,000+ (bruteforce)
-- 🛡️ CVE matching against Wordfence database
+Artifacts include multi-arch tarballs, `checksums.txt`, and a Buildx multi-arch image (`ghcr.io/<org>/wphunter:<version>`). Each bundle ships docs and the example config for quick onboarding.
 
-## Security Considerations
+## Documentation
+- `docs/product-vision.md` – positioning, personas, and architectural pillars.
+- `docs/roadmap.md` – near-term and quarterly goals.
+- `docs/architecture.md` – component overview and detector pipeline.
+- `docs/worker-contract.md` – automation interface (inputs, outputs, exit codes).
+- `docs/worker-install.md` – install/upgrade guide + release-note template.
 
-- **Do not commit actual URLs** to public repositories
-- Use repository secrets for sensitive information if needed
-- Review scan results carefully before sharing
-- This tool is for authorized security testing only
+## Contributing & Community
+1. Run `go test ./...` and `gofmt -w internal cmd` before submitting PRs.
+2. Propose new detectors or integrations via GitHub issues (`kind/detector`, `kind/deployment`).
+3. Share red/blue/purple-team playbooks using discussions to help the project grow.
 
-## Contributing
-
-Contributions are welcome! Please feel free to submit issues or pull requests.
-
-## License
-
-This template is provided as-is for security scanning purposes.
-
-## Acknowledgments
-
-- [wpprobe](https://github.com/Chocapikk/wpprobe) by Chocapikk
-- Vulnerability data from Wordfence
+Built for authorized security testing only. Always ensure you have permission before scanning any target.

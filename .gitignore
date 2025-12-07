@@ -2,9 +2,12 @@
 scan-results/
 *.json
 *.csv
+!cli-version.json
 
 # Target list with actual URLs (keep example only)
 targets.txt
+wphunter.targets.txt
+wphunter.config.yml
 
 # Temporary files
 /tmp/

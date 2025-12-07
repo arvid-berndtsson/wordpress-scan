@@ -1,0 +1,48 @@
+project_name: wphunter
+before:
+  hooks:
+    - go mod tidy
+builds:
+  - id: wphunter
+    main: ./cmd/wphunter
+    binary: wphunter
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+    goarch:
+      - amd64
+      - arm64
+    ldflags:
+      - "-s -w -X github.com/example/wphunter/internal/cli.version={{ .Version }}"
+archives:
+  - id: default
+    builds:
+      - wphunter
+    format: tar.gz
+    files:
+      - README.md
+      - docs/worker-contract.md
+      - wphunter.config.example.yml
+      - cli-version.json
+checksum:
+  name_template: "checksums.txt"
+snapshot:
+  name_template: "{{ .Tag }}-{{ .ShortCommit }}"
+changelog:
+  use: github
+  sort: asc
+dockers:
+  - ids:
+      - wphunter
+    image_templates:
+      - "ghcr.io/example/wphunter:{{ .Version }}"
+      - "ghcr.io/example/wphunter:latest"
+    goos: linux
+    use: buildx
+    build_flag_templates:
+      - "--platform=linux/amd64,linux/arm64"
+    dockerfile: Dockerfile.goreleaser
+    extra_files:
+      - wphunter.config.example.yml
+      - docs/worker-contract.md
