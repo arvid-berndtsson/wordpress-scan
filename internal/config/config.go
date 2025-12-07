@@ -319,7 +319,7 @@ func readTargetsFile(path string) ([]string, error) {
 	}
 
 	cleanedPath := filepath.Clean(path)
-	
+
 	// Check if cleaned path still contains .. components before making absolute
 	// This catches cases where .. cannot be resolved (traversal beyond root)
 	if strings.Contains(cleanedPath, "..") {
@@ -389,13 +389,13 @@ func isSystemFile(absPath string) bool {
 		"/sys/",
 		"/dev/",
 	}
-	
+
 	for _, sysPath := range systemPaths {
 		if absPath == sysPath || strings.HasPrefix(absPath, sysPath) {
 			return true
 		}
 	}
-	
+
 	return false
 }
 
