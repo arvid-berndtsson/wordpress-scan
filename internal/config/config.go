@@ -313,7 +313,30 @@ func cleanList(values []string) []string {
 }
 
 func readTargetsFile(path string) ([]string, error) {
-	file, err := os.Open(filepath.Clean(path))
+	// Validate path to prevent path traversal attacks
+	if err := validateFilePath(path); err != nil {
+		return nil, err
+	}
+
+	cleanedPath := filepath.Clean(path)
+	
+	// Check if cleaned path still contains .. components before making absolute
+	// This catches cases where .. cannot be resolved (traversal beyond root)
+	if strings.Contains(cleanedPath, "..") {
+		return nil, fmt.Errorf("path traversal detected: %s", path)
+	}
+
+	absPath, err := filepath.Abs(cleanedPath)
+	if err != nil {
+		return nil, fmt.Errorf("invalid path: %w", err)
+	}
+
+	// Additional safety: check for common system files that shouldn't be accessed
+	if isSystemFile(absPath) {
+		return nil, fmt.Errorf("access to system file denied: %s", path)
+	}
+
+	file, err := os.Open(absPath)
 	if err != nil {
 		return nil, err
 	}
@@ -334,6 +357,46 @@ func readTargetsFile(path string) ([]string, error) {
 	}
 
 	return targets, nil
+}
+
+// validateFilePath checks for common path traversal and security issues.
+func validateFilePath(path string) error {
+	if path == "" {
+		return errors.New("path cannot be empty")
+	}
+
+	// Check for null bytes
+	if strings.ContainsRune(path, '\x00') {
+		return errors.New("path contains null byte")
+	}
+
+	// Check for overly long paths (prevent potential issues)
+	if len(path) > 4096 {
+		return errors.New("path too long")
+	}
+
+	return nil
+}
+
+// isSystemFile checks if the path points to a sensitive system file.
+func isSystemFile(absPath string) bool {
+	systemPaths := []string{
+		"/etc/passwd",
+		"/etc/shadow",
+		"/etc/hosts",
+		"/etc/group",
+		"/proc/",
+		"/sys/",
+		"/dev/",
+	}
+	
+	for _, sysPath := range systemPaths {
+		if absPath == sysPath || strings.HasPrefix(absPath, sysPath) {
+			return true
+		}
+	}
+	
+	return false
 }
 
 func fileExists(path string) bool {
