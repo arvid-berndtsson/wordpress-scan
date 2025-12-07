@@ -7,19 +7,40 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
           go-version: '1.22'
-      - name: gofmt
+      - name: Format code with gofmt
+        run: gofmt -w ./cmd ./internal
+      - name: Check for formatting changes
+        id: fmt-check
         run: |
-          if [ -n "$(gofmt -l ./cmd ./internal)" ]; then
-            echo "Run gofmt" >&2
-            gofmt -l ./cmd ./internal
-            exit 1
+          if [ -n "$(git status --porcelain)" ]; then
+            echo "changes=true" >> $GITHUB_OUTPUT
+            git diff
+          else
+            echo "changes=false" >> $GITHUB_OUTPUT
           fi
+      - name: Commit formatting changes
+        if: steps.fmt-check.outputs.changes == 'true' && github.event_name == 'push'
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add -A
+          git commit -m "chore(ci): format code with gofmt [skip ci]"
+          git push
+      - name: Fail if formatting needed (PR)
+        if: steps.fmt-check.outputs.changes == 'true' && github.event_name == 'pull_request'
+        run: |
+          echo "Code formatting is required. Please run 'gofmt -w ./cmd ./internal' and commit the changes." >&2
+          exit 1
       - name: Go test
         run: go test ./...
       - name: Snapshot build
