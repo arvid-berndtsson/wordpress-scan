@@ -13,6 +13,11 @@ import (
 
 var versionRegex = regexp.MustCompile(`WordPress\s+([0-9]+\.[0-9]+(\.[0-9]+)?)`)
 
+// GeneratorTagConfidence represents the confidence level for WordPress version detection
+// via generator meta tags. Set to 0.85 because while generator tags are reliable indicators
+// of WordPress presence, they can be modified or removed, making them not 100% definitive.
+const GeneratorTagConfidence = 0.85
+
 // VersionDetector inspects the target homepage for WordPress generator metadata.
 type VersionDetector struct {
 	client       *http.Client
@@ -68,7 +73,7 @@ func (d *VersionDetector) Detect(ctx context.Context, target string) (Result, er
 		Severity:   "info",
 		Summary:    fmt.Sprintf("WordPress version %s detected", version),
 		Metadata:   map[string]interface{}{"version": version, "source": "meta-generator"},
-		Confidence: 0.85,
+		Confidence: GeneratorTagConfidence,
 	}, nil
 }
 
