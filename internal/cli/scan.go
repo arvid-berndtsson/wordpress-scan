@@ -3,6 +3,7 @@ package cli
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -152,11 +153,9 @@ func writeTargetsTempFile(targets []string) (string, error) {
 		return "", err
 	}
 
-	for _, target := range targets {
-		if _, err := fmt.Fprintln(file, target); err != nil {
-			file.Close()
-			return "", err
-		}
+	if err := writeTargetsToWriter(file, targets); err != nil {
+		file.Close()
+		return "", err
 	}
 
 	if err := file.Close(); err != nil {
@@ -164,6 +163,17 @@ func writeTargetsTempFile(targets []string) (string, error) {
 	}
 
 	return file.Name(), nil
+}
+
+// writeTargetsToWriter writes targets to a writer, one per line.
+// This is extracted to make the write logic testable.
+func writeTargetsToWriter(w io.Writer, targets []string) error {
+	for _, target := range targets {
+		if _, err := fmt.Fprintln(w, target); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func writePlaceholderArtifact(path, format string, targets []string) error {
@@ -215,7 +225,7 @@ func writeSummary(path string, cfg config.RuntimeConfig, artifacts []string, det
 		return err
 	}
 
-	return os.WriteFile(path, append(data, '\n'), 0o644)
+	return os.WriteFile(path, append(data, '\n'), 0o600)
 }
 
 func writeDetectionsArtifact(path string, results []detector.Result) error {
@@ -228,5 +238,5 @@ func writeDetectionsArtifact(path string, results []detector.Result) error {
 		return err
 	}
 
-	return os.WriteFile(path, append(data, '\n'), 0o644)
+	return os.WriteFile(path, append(data, '\n'), 0o600)
 }

@@ -309,3 +309,232 @@ mode: hybrid
 		t.Logf("Warning: config output dir was created but shouldn't have been: %s", configOutputDir)
 	}
 }
+
+func TestInitCommandConfigurationError_InvalidThreadsTooHigh(t *testing.T) {
+	outputDir := t.TempDir()
+
+	loader := &config.Loader{ConfigPath: ""}
+	cmd := newInitCmd(loader)
+
+	buf := &bytes.Buffer{}
+	cmd.SetOut(buf)
+	cmd.SetErr(buf)
+
+	cmd.SetArgs([]string{
+		"--targets=https://example.com",
+		"--output-dir", outputDir,
+		"--threads=65",
+		"--skip-wpprobe-check",
+	})
+
+	err := cmd.Execute()
+	if err == nil {
+		t.Fatal("expected init to fail with threads=65, but it succeeded")
+	}
+
+	if !strings.Contains(err.Error(), "threads must be between") {
+		t.Fatalf("expected threads validation error, got: %v", err)
+	}
+}
+
+func TestInitCommandConfigurationError_InvalidThreadsTooLow(t *testing.T) {
+	outputDir := t.TempDir()
+
+	loader := &config.Loader{ConfigPath: ""}
+	cmd := newInitCmd(loader)
+
+	buf := &bytes.Buffer{}
+	cmd.SetOut(buf)
+	cmd.SetErr(buf)
+
+	cmd.SetArgs([]string{
+		"--targets=https://example.com",
+		"--output-dir", outputDir,
+		"--threads=0",
+		"--skip-wpprobe-check",
+	})
+
+	err := cmd.Execute()
+	if err == nil {
+		t.Fatal("expected init to fail with threads=0, but it succeeded")
+	}
+
+	if !strings.Contains(err.Error(), "threads must be between") {
+		t.Fatalf("expected threads validation error, got: %v", err)
+	}
+}
+
+func TestInitCommandConfigurationError_InvalidConfigFile(t *testing.T) {
+	// Create a temporary config file with invalid YAML
+	configDir := t.TempDir()
+	configPath := filepath.Join(configDir, "invalid-config.yml")
+
+	invalidYAML := `targets:
+  - https://example.com
+outputDir: /tmp/output
+mode: hybrid
+invalid: [unclosed bracket
+`
+
+	if err := os.WriteFile(configPath, []byte(invalidYAML), 0o644); err != nil {
+		t.Fatalf("failed to write config file: %v", err)
+	}
+
+	loader := &config.Loader{ConfigPath: configPath}
+	cmd := newInitCmd(loader)
+
+	buf := &bytes.Buffer{}
+	cmd.SetOut(buf)
+	cmd.SetErr(buf)
+
+	cmd.SetArgs([]string{
+		"--skip-wpprobe-check",
+	})
+
+	err := cmd.Execute()
+	if err == nil {
+		t.Fatal("expected init to fail with invalid YAML, but it succeeded")
+	}
+
+	// The error should be about YAML parsing
+	if !strings.Contains(err.Error(), "yaml") && !strings.Contains(err.Error(), "YAML") {
+		t.Logf("Note: YAML parsing error format may vary, got: %v", err)
+	}
+}
+
+func TestInitCommandOutputDirectoryAlreadyExists(t *testing.T) {
+	// Test that init succeeds when output directory already exists
+	outputDir := t.TempDir()
+
+	// Directory already exists (created by t.TempDir())
+	loader := &config.Loader{ConfigPath: ""}
+	cmd := newInitCmd(loader)
+
+	buf := &bytes.Buffer{}
+	cmd.SetOut(buf)
+	cmd.SetErr(buf)
+
+	cmd.SetArgs([]string{
+		"--targets=https://example.com",
+		"--output-dir", outputDir,
+		"--skip-wpprobe-check",
+	})
+
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("init command failed when output dir already exists: %v", err)
+	}
+
+	output := buf.String()
+	if !strings.Contains(output, "Environment looks good") {
+		t.Fatalf("expected success message, got: %s", output)
+	}
+}
+
+func TestInitCommandBinaryCheckWithSkipFlagAndDryRun(t *testing.T) {
+	// Test that binary check is skipped when both skip flag and dry-run are set
+	outputDir := t.TempDir()
+
+	loader := &config.Loader{ConfigPath: ""}
+	cmd := newInitCmd(loader)
+
+	buf := &bytes.Buffer{}
+	cmd.SetOut(buf)
+	cmd.SetErr(buf)
+
+	cmd.SetArgs([]string{
+		"--targets=https://example.com",
+		"--output-dir", outputDir,
+		"--skip-wpprobe-check",
+		"--dry-run",
+	})
+
+	// Should succeed even if wpprobe is not available
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("init command with skip-wpprobe-check and dry-run failed: %v", err)
+	}
+
+	output := buf.String()
+	if !strings.Contains(output, "Environment looks good") {
+		t.Fatalf("expected success message, got: %s", output)
+	}
+}
+
+func TestInitCommandBinaryCheckErrorFormat(t *testing.T) {
+	// Test that binary check returns a properly formatted error
+	outputDir := t.TempDir()
+
+	loader := &config.Loader{ConfigPath: ""}
+	cmd := newInitCmd(loader)
+
+	buf := &bytes.Buffer{}
+	cmd.SetOut(buf)
+	cmd.SetErr(buf)
+
+	cmd.SetArgs([]string{
+		"--targets=https://example.com",
+		"--output-dir", outputDir,
+		// No --skip-wpprobe-check and no --dry-run
+	})
+
+	err := cmd.Execute()
+	if err == nil {
+		// If wpprobe is available in test environment, skip this test
+		t.Logf("wpprobe binary is available in test environment, skipping error format test")
+		return
+	}
+
+	// Verify the error message format
+	errorMsg := err.Error()
+	if !strings.Contains(errorMsg, "wpprobe") {
+		t.Fatalf("expected error to mention 'wpprobe', got: %v", err)
+	}
+	if !strings.Contains(errorMsg, "binary") || !strings.Contains(errorMsg, "not found") {
+		t.Fatalf("expected error to mention binary not found, got: %v", err)
+	}
+}
+
+func TestInitCommandConfigFileLoadingError(t *testing.T) {
+	// Test behavior when config file exists but has read permission issues
+	// Note: This test may not work on all systems, so we'll test a different scenario
+	// Instead, test that config file loading errors are properly propagated
+	configDir := t.TempDir()
+	configPath := filepath.Join(configDir, "test-config.yml")
+	outputDir := filepath.Join(configDir, "output")
+
+	// Create a config file that will cause a loading error (invalid targets file reference)
+	configContent := `targets:
+  - https://example.com
+targetsFile: /nonexistent/targets/file.txt
+outputDir: ` + outputDir + `
+mode: hybrid
+threads: 5
+formats:
+  - json
+`
+
+	if err := os.WriteFile(configPath, []byte(configContent), 0o644); err != nil {
+		t.Fatalf("failed to write config file: %v", err)
+	}
+
+	loader := &config.Loader{ConfigPath: configPath}
+	cmd := newInitCmd(loader)
+
+	buf := &bytes.Buffer{}
+	cmd.SetOut(buf)
+	cmd.SetErr(buf)
+
+	cmd.SetArgs([]string{
+		"--skip-wpprobe-check",
+	})
+
+	// Should fail because targets file doesn't exist
+	err := cmd.Execute()
+	if err == nil {
+		t.Fatal("expected init to fail with non-existent targets file, but it succeeded")
+	}
+
+	// Error should be about file not found
+	if !strings.Contains(err.Error(), "no such file") && !strings.Contains(err.Error(), "cannot find") && !strings.Contains(err.Error(), "open") {
+		t.Logf("Note: File not found error format may vary, got: %v", err)
+	}
+}

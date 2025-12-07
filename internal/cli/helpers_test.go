@@ -68,6 +68,22 @@ func TestEnsureOutputDir(t *testing.T) {
 			},
 			wantError: true,
 		},
+		{
+			name: "parent path is a file",
+			setup: func(t *testing.T) string {
+				tmpDir := t.TempDir()
+				filePath := filepath.Join(tmpDir, "file")
+				// Create a file instead of a directory
+				f, err := os.Create(filePath)
+				if err != nil {
+					t.Fatalf("setup failed to create file: %v", err)
+				}
+				f.Close()
+				// Try to create a subdirectory where parent is a file
+				return filepath.Join(filePath, "subdir")
+			},
+			wantError: true,
+		},
 	}
 
 	for _, tt := range tests {
@@ -143,4 +159,58 @@ func TestEnsureOutputDirIdempotence(t *testing.T) {
 	if !info2.IsDir() {
 		t.Errorf("path is no longer a directory")
 	}
+}
+
+// TestEnsureOutputDirErrorScenarios tests various error conditions in detail.
+func TestEnsureOutputDirErrorScenarios(t *testing.T) {
+	t.Run("empty path returns specific error message", func(t *testing.T) {
+		err := ensureOutputDir("")
+		if err == nil {
+			t.Fatal("expected error for empty path")
+		}
+		if err.Error() != "output directory cannot be empty" {
+			t.Errorf("expected error message %q, got %q", "output directory cannot be empty", err.Error())
+		}
+	})
+
+	t.Run("permission denied when parent is read-only", func(t *testing.T) {
+		if os.Getuid() == 0 {
+			t.Skip("skipping permission test when running as root")
+		}
+		tmpDir := t.TempDir()
+		restrictedDir := filepath.Join(tmpDir, "restricted")
+		if err := os.MkdirAll(restrictedDir, 0o755); err != nil {
+			t.Fatalf("setup failed: %v", err)
+		}
+		// Make the directory read-only (no write permission)
+		if err := os.Chmod(restrictedDir, 0o555); err != nil {
+			t.Fatalf("setup failed to set permissions: %v", err)
+		}
+		defer os.Chmod(restrictedDir, 0o755) // Cleanup
+
+		// Try to create a subdirectory in the read-only directory
+		subDir := filepath.Join(restrictedDir, "subdir")
+		err := ensureOutputDir(subDir)
+		if err == nil {
+			t.Error("expected error when parent directory is read-only")
+		}
+	})
+
+	t.Run("error when parent path is a file", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		filePath := filepath.Join(tmpDir, "file")
+		// Create a file instead of a directory
+		f, err := os.Create(filePath)
+		if err != nil {
+			t.Fatalf("setup failed to create file: %v", err)
+		}
+		f.Close()
+
+		// Try to create a subdirectory where parent is a file
+		subDir := filepath.Join(filePath, "subdir")
+		err = ensureOutputDir(subDir)
+		if err == nil {
+			t.Error("expected error when parent path is a file")
+		}
+	})
 }

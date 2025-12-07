@@ -18,6 +18,11 @@ var versionRegex = regexp.MustCompile(`WordPress\s+([0-9]+\.[0-9]+(\.[0-9]+)?)`)
 // of WordPress presence, they can be modified or removed, making them not 100% definitive.
 const GeneratorTagConfidence = 0.85
 
+// DefaultMaxBodyBytes is the default maximum number of bytes to read from HTTP response bodies
+// when detecting WordPress versions. Set to 1MB to limit memory usage while capturing
+// enough content to find generator meta tags.
+const DefaultMaxBodyBytes = 1024 * 1024
+
 // VersionDetector inspects the target homepage for WordPress generator metadata.
 type VersionDetector struct {
 	client       *http.Client
@@ -29,7 +34,7 @@ func NewVersionDetector(client *http.Client) *VersionDetector {
 	if client == nil {
 		client = &http.Client{Timeout: 10 * time.Second}
 	}
-	return &VersionDetector{client: client, maxBodyBytes: 1024 * 1024}
+	return &VersionDetector{client: client, maxBodyBytes: DefaultMaxBodyBytes}
 }
 
 // Name implements Detector.

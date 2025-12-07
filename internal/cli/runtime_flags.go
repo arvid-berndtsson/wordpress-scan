@@ -1,6 +1,8 @@
 package cli
 
 import (
+	"fmt"
+
 	"github.com/example/wphunter/internal/config"
 	"github.com/spf13/cobra"
 )
@@ -22,7 +24,7 @@ func bindRuntimeFlags(cmd *cobra.Command, flags *runtimeFlagSet) {
 	cmd.Flags().StringVar(&flags.targets, "targets", "", "Comma-separated list of targets (overrides config)")
 	cmd.Flags().StringVar(&flags.targetsFile, "targets-file", "", "Path to a file with one target per line")
 	cmd.Flags().StringVar(&flags.mode, "mode", "", "Scan mode: stealthy, bruteforce, or hybrid")
-	cmd.Flags().IntVar(&flags.threads, "threads", 0, "Number of concurrent threads (1-64)")
+	cmd.Flags().IntVar(&flags.threads, "threads", 0, fmt.Sprintf("Number of concurrent threads (1-%d)", config.MaxThreads))
 	cmd.Flags().StringVar(&flags.outputDir, "output-dir", "", "Directory for scan artifacts")
 	cmd.Flags().StringVar(&flags.formats, "formats", "", "Comma-separated output formats (json,csv)")
 	cmd.Flags().StringVar(&flags.detectors, "detectors", "", "Comma-separated detectors to run (version,plugins,...)")

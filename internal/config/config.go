@@ -14,6 +14,10 @@ import (
 
 const (
 	DefaultConfigPath = "wphunter.config.yml"
+	// MaxThreads is the maximum number of concurrent threads allowed for scanning.
+	// This limit prevents resource exhaustion by capping the number of simultaneous
+	// network connections and CPU-intensive operations that can be performed.
+	MaxThreads = 64
 )
 
 var (
@@ -105,8 +109,8 @@ func (c RuntimeConfig) Validate() error {
 		return errors.New("no targets configured; provide --targets, --targets-file, or set WORKER_TARGETS")
 	}
 
-	if c.Threads < 1 || c.Threads > 64 {
-		return fmt.Errorf("threads must be between 1 and 64 (got %d)", c.Threads)
+	if c.Threads < 1 || c.Threads > MaxThreads {
+		return fmt.Errorf("threads must be between 1 and %d (got %d)", MaxThreads, c.Threads)
 	}
 
 	if c.Mode == "" {

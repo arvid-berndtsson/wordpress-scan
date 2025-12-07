@@ -8,6 +8,14 @@ import (
 	"strconv"
 )
 
+// ExecLookPath is a function type for looking up executables in PATH.
+// This allows us to mock exec.LookPath in tests.
+type ExecLookPath func(name string) (string, error)
+
+// ExecCommandContext is a function type for creating commands.
+// This allows us to mock exec.CommandContext in tests.
+type ExecCommandContext func(ctx context.Context, name string, arg ...string) *exec.Cmd
+
 // Runner defines the operations needed to drive wpprobe.
 type Runner interface {
 	EnsureBinary() error
@@ -17,7 +25,9 @@ type Runner interface {
 
 // CommandRunner executes the real wpprobe binary present on the worker.
 type CommandRunner struct {
-	Binary string
+	Binary         string
+	lookPath       ExecLookPath
+	commandContext ExecCommandContext
 }
 
 // ScanInput describes a single wpprobe scan invocation.
@@ -32,12 +42,19 @@ type ScanInput struct {
 
 // NewRunner returns a default command runner.
 func NewRunner() Runner {
-	return &CommandRunner{Binary: "wpprobe"}
+	return &CommandRunner{
+		Binary:         "wpprobe",
+		lookPath:       exec.LookPath,
+		commandContext: exec.CommandContext,
+	}
 }
 
 // EnsureBinary verifies that the wpprobe binary is discoverable on PATH.
 func (r *CommandRunner) EnsureBinary() error {
-	_, err := exec.LookPath(r.Binary)
+	if r.lookPath == nil {
+		r.lookPath = exec.LookPath
+	}
+	_, err := r.lookPath(r.Binary)
 	if err != nil {
 		return fmt.Errorf("wpprobe binary not found: %w", err)
 	}
@@ -54,9 +71,13 @@ func (r *CommandRunner) Scan(ctx context.Context, input ScanInput) error {
 		"-t", strconv.Itoa(input.Threads),
 	}
 
-	// Binary path is controlled by the application and args are constructed
+	if r.commandContext == nil {
+		r.commandContext = exec.CommandContext
+	}
+
+	// #nosec G204: Binary path is controlled by the application and args are constructed
 	// programmatically from validated inputs, making command injection impossible.
-	cmd := exec.CommandContext(ctx, r.Binary, args...) // #nosec G204
+	cmd := r.commandContext(ctx, r.Binary, args...)
 	cmd.Stdout = input.Stdout
 	cmd.Stderr = input.Stderr
 
@@ -65,8 +86,11 @@ func (r *CommandRunner) Scan(ctx context.Context, input ScanInput) error {
 
 // Update runs `wpprobe update` to refresh vulnerability databases.
 func (r *CommandRunner) Update(ctx context.Context) error {
-	// Binary path is controlled by the application and the argument is a constant string,
-	// making command injection impossible.
-	cmd := exec.CommandContext(ctx, r.Binary, "update") // #nosec G204
+	if r.commandContext == nil {
+		r.commandContext = exec.CommandContext
+	}
+	// #nosec G204: Binary path is controlled by the application and args are constructed
+	// programmatically from validated inputs (here, a constant string), making command injection impossible.
+	cmd := r.commandContext(ctx, r.Binary, "update")
 	return cmd.Run()
 }

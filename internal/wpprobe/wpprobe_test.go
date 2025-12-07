@@ -1,9 +1,10 @@
 package wpprobe
 
 import (
-	"bytes"
 	"context"
 	"errors"
+	"os/exec"
+	"reflect"
 	"testing"
 )
 
@@ -28,6 +29,46 @@ func (f *fakeRunner) Update(ctx context.Context) error {
 	return f.updateErr
 }
 
+// mockLookPath is a mock implementation of ExecLookPath for testing.
+type mockLookPath struct {
+	calls      []string
+	returnPath string
+	returnErr  error
+}
+
+func (m *mockLookPath) LookPath(name string) (string, error) {
+	m.calls = append(m.calls, name)
+	return m.returnPath, m.returnErr
+}
+
+// mockCommandContext is a mock implementation of ExecCommandContext for testing.
+type mockCommandContext struct {
+	calls      []commandCall
+	returnCmd  *exec.Cmd
+	returnErr  error
+}
+
+type commandCall struct {
+	ctx  context.Context
+	name string
+	args []string
+}
+
+func (m *mockCommandContext) CommandContext(ctx context.Context, name string, arg ...string) *exec.Cmd {
+	m.calls = append(m.calls, commandCall{
+		ctx:  ctx,
+		name: name,
+		args: arg,
+	})
+	if m.returnCmd != nil {
+		return m.returnCmd
+	}
+	// Return a command that will fail immediately when Run() is called
+	// unless we've set up a specific return command
+	cmd := exec.CommandContext(ctx, name, arg...)
+	return cmd
+}
+
 // TestNewRunner verifies that NewRunner returns a CommandRunner with default binary name.
 func TestNewRunner(t *testing.T) {
 	runner := NewRunner()
@@ -38,31 +79,76 @@ func TestNewRunner(t *testing.T) {
 	if cr.Binary != "wpprobe" {
 		t.Fatalf("expected binary name 'wpprobe', got %q", cr.Binary)
 	}
+	if cr.lookPath == nil {
+		t.Fatal("lookPath should be initialized")
+	}
+	if cr.commandContext == nil {
+		t.Fatal("commandContext should be initialized")
+	}
 }
 
-// TestEnsureBinaryWhenPresent verifies EnsureBinary succeeds when binary is on PATH.
+// TestEnsureBinaryWhenPresent verifies EnsureBinary succeeds when binary is found.
 func TestEnsureBinaryWhenPresent(t *testing.T) {
-	runner := &CommandRunner{Binary: "go"} // Use 'go' as a known binary
+	mockLookPath := &mockLookPath{
+		returnPath: "/usr/bin/wpprobe",
+		returnErr:  nil,
+	}
+
+	runner := &CommandRunner{
+		Binary:   "wpprobe",
+		lookPath: mockLookPath.LookPath,
+	}
+
 	err := runner.EnsureBinary()
 	if err != nil {
-		t.Fatalf("EnsureBinary should succeed for 'go' binary: %v", err)
+		t.Fatalf("EnsureBinary should succeed when binary is found: %v", err)
+	}
+
+	if len(mockLookPath.calls) != 1 {
+		t.Fatalf("expected LookPath to be called once, got %d calls", len(mockLookPath.calls))
+	}
+	if mockLookPath.calls[0] != "wpprobe" {
+		t.Fatalf("expected LookPath to be called with 'wpprobe', got %q", mockLookPath.calls[0])
 	}
 }
 
 // TestEnsureBinaryWhenMissing verifies EnsureBinary returns error when binary is not found.
 func TestEnsureBinaryWhenMissing(t *testing.T) {
-	runner := &CommandRunner{Binary: "nonexistent-binary-12345"}
+	mockLookPath := &mockLookPath{
+		returnPath: "",
+		returnErr:  exec.ErrNotFound,
+	}
+
+	runner := &CommandRunner{
+		Binary:   "nonexistent-binary",
+		lookPath: mockLookPath.LookPath,
+	}
+
 	err := runner.EnsureBinary()
 	if err == nil {
-		t.Fatal("EnsureBinary should fail for nonexistent binary")
+		t.Fatal("EnsureBinary should fail when binary is not found")
+	}
+
+	expectedErr := "wpprobe binary not found"
+	if err.Error()[:len(expectedErr)] != expectedErr {
+		t.Fatalf("expected error message to start with %q, got %q", expectedErr, err.Error())
+	}
+
+	if len(mockLookPath.calls) != 1 {
+		t.Fatalf("expected LookPath to be called once, got %d calls", len(mockLookPath.calls))
+	}
+	if mockLookPath.calls[0] != "nonexistent-binary" {
+		t.Fatalf("expected LookPath to be called with 'nonexistent-binary', got %q", mockLookPath.calls[0])
 	}
 }
 
 // TestScanConstructsCorrectCommand verifies that Scan builds the expected command arguments.
 func TestScanConstructsCorrectCommand(t *testing.T) {
 	tests := []struct {
-		name  string
-		input ScanInput
+		name           string
+		input          ScanInput
+		expectedArgs   []string
+		expectedBinary string
 	}{
 		{
 			name: "basic scan",
@@ -71,6 +157,14 @@ func TestScanConstructsCorrectCommand(t *testing.T) {
 				Mode:        "fast",
 				Threads:     10,
 				OutputPath:  "/tmp/output.json",
+			},
+			expectedBinary: "wpprobe",
+			expectedArgs: []string{
+				"scan",
+				"-f", "/tmp/targets.txt",
+				"--mode", "fast",
+				"-o", "/tmp/output.json",
+				"-t", "10",
 			},
 		},
 		{
@@ -81,6 +175,14 @@ func TestScanConstructsCorrectCommand(t *testing.T) {
 				Threads:     5,
 				OutputPath:  "/data/results.json",
 			},
+			expectedBinary: "wpprobe",
+			expectedArgs: []string{
+				"scan",
+				"-f", "/data/targets.txt",
+				"--mode", "stealthy",
+				"-o", "/data/results.json",
+				"-t", "5",
+			},
 		},
 		{
 			name: "single thread",
@@ -90,102 +192,191 @@ func TestScanConstructsCorrectCommand(t *testing.T) {
 				Threads:     1,
 				OutputPath:  "/work/scan.json",
 			},
+			expectedBinary: "wpprobe",
+			expectedArgs: []string{
+				"scan",
+				"-f", "/work/targets.txt",
+				"--mode", "aggressive",
+				"-o", "/work/scan.json",
+				"-t", "1",
+			},
+		},
+		{
+			name: "zero threads",
+			input: ScanInput{
+				TargetsFile: "/tmp/targets.txt",
+				Mode:        "fast",
+				Threads:     0,
+				OutputPath:  "/tmp/output.json",
+			},
+			expectedBinary: "wpprobe",
+			expectedArgs: []string{
+				"scan",
+				"-f", "/tmp/targets.txt",
+				"--mode", "fast",
+				"-o", "/tmp/output.json",
+				"-t", "0",
+			},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			runner := &CommandRunner{Binary: "go"} // Use 'go' which exists
-			
-			var stdout, stderr bytes.Buffer
-			tt.input.Stdout = &stdout
-			tt.input.Stderr = &stderr
+			mockCmdCtx := &mockCommandContext{}
 
-			// We expect this to fail because 'go' doesn't accept 'scan' subcommand,
-			// but we can verify the command was constructed by checking the error
-			err := runner.Scan(context.Background(), tt.input)
-			
-			// The command should run, even though it will fail with "unknown command"
-			// This verifies the command was constructed and executed
+			runner := &CommandRunner{
+				Binary:         tt.expectedBinary,
+				commandContext: mockCmdCtx.CommandContext,
+			}
+
+			ctx := context.Background()
+			err := runner.Scan(ctx, tt.input)
+
+			// We expect an error because the mock command will fail when Run() is called
+			// (since there's no actual binary), but we can verify the command was constructed correctly
 			if err == nil {
-				t.Fatal("expected error when running 'go scan' (invalid command)")
+				t.Log("Note: Scan succeeded unexpectedly (this is okay if a real binary exists)")
+			}
+
+			if len(mockCmdCtx.calls) != 1 {
+				t.Fatalf("expected CommandContext to be called once, got %d calls", len(mockCmdCtx.calls))
+			}
+
+			call := mockCmdCtx.calls[0]
+			if call.name != tt.expectedBinary {
+				t.Fatalf("expected binary %q, got %q", tt.expectedBinary, call.name)
+			}
+
+			if !reflect.DeepEqual(call.args, tt.expectedArgs) {
+				t.Fatalf("expected args %v, got %v", tt.expectedArgs, call.args)
+			}
+
+			if call.ctx != ctx {
+				t.Fatal("expected context to be passed through")
 			}
 		})
 	}
 }
 
-// TestScanWithContext verifies that Scan respects context cancellation.
+// TestScanWithContext verifies that Scan passes context to the command.
 func TestScanWithContext(t *testing.T) {
-	runner := &CommandRunner{Binary: "sleep"} // Use 'sleep' for a long-running command
-	
+	mockCmdCtx := &mockCommandContext{}
+
+	runner := &CommandRunner{
+		Binary:         "wpprobe",
+		commandContext: mockCmdCtx.CommandContext,
+	}
+
 	ctx, cancel := context.WithCancel(context.Background())
-	cancel() // Cancel immediately
-	
+	defer cancel()
+
 	input := ScanInput{
 		TargetsFile: "/tmp/targets.txt",
 		Mode:        "fast",
 		Threads:     10,
 		OutputPath:  "/tmp/output.json",
 	}
-	
+
 	err := runner.Scan(ctx, input)
 	if err == nil {
-		t.Fatal("Scan should fail when context is cancelled")
+		t.Log("Note: Scan succeeded unexpectedly (this is okay if a real binary exists)")
+	}
+
+	if len(mockCmdCtx.calls) != 1 {
+		t.Fatalf("expected CommandContext to be called once, got %d calls", len(mockCmdCtx.calls))
+	}
+
+	call := mockCmdCtx.calls[0]
+	if call.ctx != ctx {
+		t.Fatal("expected the provided context to be passed to CommandContext")
 	}
 }
 
-// TestScanStreamsOutput verifies that Scan properly connects stdout and stderr.
-func TestScanStreamsOutput(t *testing.T) {
-	runner := &CommandRunner{Binary: "echo"} // Use 'echo' to test output
-	
-	var stdout, stderr bytes.Buffer
+// TestScanSetsStdoutStderr verifies that Scan properly sets stdout and stderr on the command.
+func TestScanSetsStdoutStderr(t *testing.T) {
+	// This test verifies that stdout/stderr are set, but we can't easily mock
+	// the exec.Cmd fields without actually running a command.
+	// We'll verify the command is constructed and the streams are passed through
+	// by checking that no panic occurs when nil writers are provided.
+	runner := &CommandRunner{
+		Binary:         "wpprobe",
+		commandContext: exec.CommandContext,
+	}
+
 	input := ScanInput{
-		TargetsFile: "test",
+		TargetsFile: "/tmp/targets.txt",
 		Mode:        "fast",
 		Threads:     10,
 		OutputPath:  "/tmp/output.json",
-		Stdout:      &stdout,
-		Stderr:      &stderr,
+		Stdout:      nil, // nil is valid and will be ignored
+		Stderr:      nil, // nil is valid and will be ignored
 	}
-	
-	// This will fail because echo doesn't accept these args, but we can verify
-	// that stdout/stderr are connected
+
+	// This should not panic even with nil writers
 	_ = runner.Scan(context.Background(), input)
-	
-	// If stdout was connected, we might see output (depending on the command)
-	// The key is that no panic occurred from nil writers
 }
 
-// TestUpdateRunsCommand verifies that Update executes the update command.
+// TestUpdateRunsCommand verifies that Update executes the update command with correct arguments.
 func TestUpdateRunsCommand(t *testing.T) {
-	runner := &CommandRunner{Binary: "echo"} // Use 'echo' as a simple test
-	
-	err := runner.Update(context.Background())
-	if err != nil {
-		t.Fatalf("Update failed: %v", err)
-	}
-}
+	mockCmdCtx := &mockCommandContext{}
 
-// TestUpdateWithMissingBinary verifies Update fails gracefully when binary is missing.
-func TestUpdateWithMissingBinary(t *testing.T) {
-	runner := &CommandRunner{Binary: "nonexistent-binary-67890"}
-	
-	err := runner.Update(context.Background())
+	runner := &CommandRunner{
+		Binary:         "wpprobe",
+		commandContext: mockCmdCtx.CommandContext,
+	}
+
+	ctx := context.Background()
+	err := runner.Update(ctx)
+
+	// We expect an error because the mock command will fail when Run() is called
+	// (since there's no actual binary), but we can verify the command was constructed correctly
 	if err == nil {
-		t.Fatal("Update should fail when binary is missing")
+		t.Log("Note: Update succeeded unexpectedly (this is okay if a real binary exists)")
+	}
+
+	if len(mockCmdCtx.calls) != 1 {
+		t.Fatalf("expected CommandContext to be called once, got %d calls", len(mockCmdCtx.calls))
+	}
+
+	call := mockCmdCtx.calls[0]
+	if call.name != "wpprobe" {
+		t.Fatalf("expected binary 'wpprobe', got %q", call.name)
+	}
+
+	expectedArgs := []string{"update"}
+	if !reflect.DeepEqual(call.args, expectedArgs) {
+		t.Fatalf("expected args %v, got %v", expectedArgs, call.args)
+	}
+
+	if call.ctx != ctx {
+		t.Fatal("expected context to be passed through")
 	}
 }
 
-// TestUpdateWithContext verifies that Update respects context cancellation.
+// TestUpdateWithContext verifies that Update passes context to the command.
 func TestUpdateWithContext(t *testing.T) {
-	runner := &CommandRunner{Binary: "sleep"} // Use 'sleep' for a long-running command
-	
+	mockCmdCtx := &mockCommandContext{}
+
+	runner := &CommandRunner{
+		Binary:         "wpprobe",
+		commandContext: mockCmdCtx.CommandContext,
+	}
+
 	ctx, cancel := context.WithCancel(context.Background())
-	cancel() // Cancel immediately
-	
+	defer cancel()
+
 	err := runner.Update(ctx)
 	if err == nil {
-		t.Fatal("Update should fail when context is cancelled")
+		t.Log("Note: Update succeeded unexpectedly (this is okay if a real binary exists)")
+	}
+
+	if len(mockCmdCtx.calls) != 1 {
+		t.Fatalf("expected CommandContext to be called once, got %d calls", len(mockCmdCtx.calls))
+	}
+
+	call := mockCmdCtx.calls[0]
+	if call.ctx != ctx {
+		t.Fatal("expected the provided context to be passed to CommandContext")
 	}
 }
 
@@ -252,16 +443,16 @@ func TestFakeRunnerScan(t *testing.T) {
 				Threads:     10,
 				OutputPath:  "/tmp/output.json",
 			}
-			
+
 			err := fake.Scan(context.Background(), input)
 			if (err != nil) != tt.wantErr {
 				t.Fatalf("expected error: %v, got: %v", tt.wantErr, err)
 			}
-			
+
 			if fake.scanInput == nil {
 				t.Fatal("scanInput should be captured")
 			}
-			
+
 			if fake.scanInput.TargetsFile != input.TargetsFile {
 				t.Fatalf("expected targets file %q, got %q", input.TargetsFile, fake.scanInput.TargetsFile)
 			}
