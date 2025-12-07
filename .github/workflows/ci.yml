@@ -31,8 +31,8 @@ jobs:
       - name: Commit formatting changes
         if: steps.fmt-check.outputs.changes == 'true' && github.event_name == 'push'
         run: |
-          git config --local user.email "action@github.com"
-          git config --local user.name "GitHub Action"
+          git config --local user.email "${{ github.actor }}@users.noreply.github.com"
+          git config --local user.name "${{ github.actor }}"
           git add -A
           git commit -m "chore(ci): format code with gofmt [skip ci]"
           git push
