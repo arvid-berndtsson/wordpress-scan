@@ -155,31 +155,31 @@ func TestEmit_JSONMarshalingEdgeCases(t *testing.T) {
 		{
 			name: "nil fields map",
 			event: Event{
-				Type:    "test",
-				Fields:  nil,
+				Type:   "test",
+				Fields: nil,
 			},
 			wantErr: false,
 		},
 		{
 			name: "empty fields map",
 			event: Event{
-				Type:    "test",
-				Fields:  map[string]interface{}{},
+				Type:   "test",
+				Fields: map[string]interface{}{},
 			},
 			wantErr: false,
 		},
 		{
 			name: "fields with various types",
 			event: Event{
-				Type:  "test",
+				Type: "test",
 				Fields: map[string]interface{}{
-					"string":  "value",
-					"int":     42,
-					"float":   3.14,
-					"bool":    true,
-					"nil":     nil,
-					"array":   []interface{}{1, 2, 3},
-					"nested":  map[string]interface{}{"key": "value"},
+					"string": "value",
+					"int":    42,
+					"float":  3.14,
+					"bool":   true,
+					"nil":    nil,
+					"array":  []interface{}{1, 2, 3},
+					"nested": map[string]interface{}{"key": "value"},
 				},
 			},
 			wantErr: false,
@@ -338,7 +338,7 @@ func TestEmit_ErrorHandling(t *testing.T) {
 			wantErr: true,
 		},
 		{
-			name: "JSON marshaling error",
+			name:   "JSON marshaling error",
 			writer: &bytes.Buffer{},
 			event: Event{
 				Type: "test",
@@ -442,4 +442,3 @@ func TestEmit_MultipleEvents(t *testing.T) {
 		}
 	}
 }
-

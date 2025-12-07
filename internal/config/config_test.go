@@ -88,7 +88,7 @@ func TestParseTargetsList(t *testing.T) {
 
 func TestReadTargetsFile_PathTraversal(t *testing.T) {
 	dir := t.TempDir()
-	
+
 	// Create a legitimate targets file
 	legitimateFile := filepath.Join(dir, "targets.txt")
 	if err := os.WriteFile(legitimateFile, []byte("https://legitimate.test\n"), 0o600); err != nil {

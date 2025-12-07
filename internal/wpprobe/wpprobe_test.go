@@ -43,9 +43,9 @@ func (m *mockLookPath) LookPath(name string) (string, error) {
 
 // mockCommandContext is a mock implementation of ExecCommandContext for testing.
 type mockCommandContext struct {
-	calls      []commandCall
-	returnCmd  *exec.Cmd
-	returnErr  error
+	calls     []commandCall
+	returnCmd *exec.Cmd
+	returnErr error
 }
 
 type commandCall struct {
