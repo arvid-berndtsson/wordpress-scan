@@ -16,7 +16,7 @@ import (
 
 type doctorCheck struct {
 	Name   string
-	Status string // "✓" or "✗"
+	Status string // "✓" (pass), "✗" (fail), or "⊘" (skipped)
 	Detail string
 	Error  error
 }
@@ -75,8 +75,8 @@ func runDoctorChecks(ctx context.Context, cfg *config.RuntimeConfig) []doctorChe
 	wpprobeCheck := checkWPProbeBinary(cfg.DryRun)
 	checks = append(checks, wpprobeCheck)
 
-	// Check 3: wpprobe database (if binary is available)
-	if wpprobeCheck.Error == nil && !cfg.DryRun {
+	// Check 3: wpprobe functionality (if binary is available)
+	if wpprobeCheck.Status == "✓" && !cfg.DryRun {
 		dbCheck := checkWPProbeDatabase(ctx)
 		checks = append(checks, dbCheck)
 	}
@@ -160,10 +160,9 @@ func getWPProbeVersion() (string, error) {
 }
 
 func checkWPProbeDatabase(ctx context.Context) doctorCheck {
-	// Try to run wpprobe update to check database status
-	// This is a lightweight check that doesn't actually update
-	// We can't directly check DB freshness without running update,
-	// so we'll just verify the binary can be executed
+	// Verify wpprobe binary functionality by running --help
+	// Note: This does not check database freshness; a full DB check
+	// would require running 'wpprobe update' which modifies state
 	testCtx, cancel := context.WithTimeout(ctx, 3*time.Second)
 	defer cancel()
 

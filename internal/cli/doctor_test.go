@@ -252,7 +252,7 @@ func TestCheckNetworkReachability(t *testing.T) {
 		{
 			name:           "more than max targets",
 			targets:        []string{server.URL, server.URL, server.URL, server.URL, server.URL},
-			expectedChecks: 4, // 3 checked + 1 "skipped" message
+			expectedChecks: 4, // maxNetworkChecks (3) + 1 summary message for remaining targets
 			wantSuccess:    true,
 		},
 	}
