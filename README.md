@@ -23,6 +23,9 @@ cp wphunter.targets.example wphunter.targets.txt # optional, used by deployments
 # 3. Validate the environment (installs only run-time deps)
 ./bin/wphunter init --config wphunter.config.yml
 
+# 3a. Run comprehensive diagnostics (optional but recommended)
+./bin/wphunter doctor --config wphunter.config.yml
+
 # 4. Run a scan (remove --dry-run for live detectors + wpprobe)
 ./bin/wphunter scan --config wphunter.config.yml --dry-run
 
@@ -61,6 +64,27 @@ WPHUNTER_DETECTORS="version" \
 - `wpprobe`: leverages [wpprobe](https://github.com/Chocapikk/wpprobe) for plugin/theme enumeration using stealthy, bruteforce, or hybrid strategies.
 
 Future detectors (see `docs/roadmap.md`) will include authenticated probes, misconfiguration checks, and differential analysis.
+
+## Environment Validation
+
+The `doctor` subcommand performs comprehensive environment diagnostics before running scans:
+
+```bash
+# Run diagnostics with your config
+./bin/wphunter doctor --config wphunter.config.yml
+
+# Quick check with inline targets
+./bin/wphunter doctor --dry-run --targets "https://example.com" --mode hybrid
+```
+
+The doctor command validates:
+- **Go runtime** – verifies the Go version
+- **wpprobe binary** – checks if wpprobe is available and executable
+- **Network connectivity** – tests reachability of configured targets (first 3)
+- **Configuration** – validates all config settings
+- **Output directory** – ensures the output path is writable
+
+Use `--dry-run` to skip external dependencies like wpprobe and network checks. The `--timeout` flag (default 30s) controls how long to wait for network checks.
 
 ## Deployments & Integrations
 - **GitHub Actions:** copy `deployments/github/wp-hunter-template.yml` into your own repo. The workflow pulls prebuilt binaries/containers instead of rebuilding Go code.
