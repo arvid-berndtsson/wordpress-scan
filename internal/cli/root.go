@@ -30,6 +30,7 @@ func Execute() error {
 		newInitCmd(loader),
 		newScanCmd(loader),
 		newReportCmd(),
+		newDoctorCmd(loader),
 	)
 
 	return rootCmd.Execute()

@@ -6,7 +6,7 @@
 - [x] Layered config (file/env/flags) with detector selection + env aliasing.
 - [x] Package via Goreleaser (multi-arch binaries + Docker image) tracked by `cli-version.json`.
 - [x] Document install/upgrade and automation contract for worker fleets.
-- [ ] Add `doctor` subcommand to validate dependencies, network reachability, and wpprobe DB freshness.
+- [x] Add `doctor` subcommand to validate dependencies, network reachability, and wpprobe DB freshness.
 - [ ] Implement Markdown/HTML summary exports for quick sharing.
 
 ## Detector & Pipeline Expansion

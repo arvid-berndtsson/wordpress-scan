@@ -9,6 +9,9 @@ targets.txt
 wphunter.targets.txt
 wphunter.config.yml
 
+# Build artifacts
+bin/
+
 # Temporary files
 /tmp/
 *.tmp
