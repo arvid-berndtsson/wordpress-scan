@@ -168,7 +168,7 @@ func checkWPProbeDatabase(ctx context.Context) doctorCheck {
 
 	cmd := exec.CommandContext(testCtx, "wpprobe", "--help")
 	err := cmd.Run()
-	
+
 	if err != nil {
 		return doctorCheck{
 			Name:   "wpprobe Functionality",
@@ -187,7 +187,7 @@ func checkWPProbeDatabase(ctx context.Context) doctorCheck {
 
 func checkNetworkReachability(ctx context.Context, targets []string) []doctorCheck {
 	checks := []doctorCheck{}
-	
+
 	// Limit to first 3 targets for performance
 	maxChecks := 3
 	originalTargetCount := len(targets)

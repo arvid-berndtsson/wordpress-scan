@@ -422,7 +422,7 @@ dryRun: true
 
 	// Run the command
 	err := cmd.Execute()
-	
+
 	// In dry-run mode, we should succeed
 	if err != nil {
 		t.Logf("Command output:\n%s", stdout.String())
